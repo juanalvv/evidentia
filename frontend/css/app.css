@@ -125,7 +125,7 @@ body.app-body {
 .summary-kind {
   flex: 0 0 auto;
   padding: 0.28rem 0.58rem;
-  color: var(--accent);
+  color: var(--muted);
   background: var(--accent-soft);
   border-radius: 999px;
   font-size: 0.72rem;
@@ -363,7 +363,7 @@ body.app-body {
   text-align: left;
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 12px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
   cursor: pointer;
   transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
@@ -512,6 +512,14 @@ body.app-body {
 
 .layout.report-ready .panel-input {
   display: none;
+}
+
+.layout.citation-ready .panel-output {
+  display: none;
+}
+
+.layout.citation-ready .citation-detail-view {
+  display: block;
 }
 
 @media (max-width: 900px) {
@@ -767,6 +775,20 @@ button:disabled {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .citation-main,
+  .citation-detail-hero {
+    flex-direction: column;
+  }
+
+  .citation-score,
+  .citation-detail-score {
+    width: 100%;
+  }
+
+  .citation-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .gauge-label {
@@ -846,97 +868,68 @@ button:disabled {
 }
 
 .citation-list {
+  list-style: none;
+  padding: 0;
   margin: 0 0 1.5rem;
   display: grid;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .citation-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-rows: auto auto;
+  gap: 0.25rem 0.75rem;
   padding: 1rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
-  border: 1px solid var(--border);
+  background: #fff;
+  border: 1.5px solid #94a3b8;
   border-radius: 18px;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  font-size: 0.85rem;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.14);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
-.citation-main {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.85rem;
+.citation-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.11);
+  transform: translateY(-1px);
+}
+
+.panel .citation-item {
+  background: #fff;
+  color: inherit;
+}
+
+.panel .citation-item:hover {
+  background: #f8fafc;
 }
 
 .citation-title {
-  margin: 0 0 0.3rem;
-  color: var(--text);
-  font-size: 0.95rem;
-  line-height: 1.35;
-}
-
-.citation-meta {
   margin: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
-
-.citation-score {
-  min-width: 72px;
-  padding: 0.45rem 0.55rem;
-  text-align: center;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-}
-
-.citation-score strong {
-  display: block;
   color: var(--text);
-  font-size: 1rem;
-  line-height: 1;
+  font-weight: 600;
 }
 
-.citation-score span {
-  display: block;
-  margin-top: 0.25rem;
-  color: var(--muted);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.citation-score.good {
-  border-color: rgba(5, 150, 105, 0.22);
-  background: rgba(5, 150, 105, 0.06);
-}
-
-.citation-score.warn {
-  border-color: rgba(217, 119, 6, 0.24);
-  background: rgba(217, 119, 6, 0.07);
-}
-
-.citation-score.bad {
-  border-color: rgba(220, 38, 38, 0.24);
-  background: rgba(220, 38, 38, 0.07);
-}
-
-.citation-gauge {
-  position: relative;
+.citation-bar-wrap {
+  grid-column: 1 / 2;
+  align-self: center;
   height: 10px;
   background: #e2e8f0;
-  border-radius: 999px;
+  border-radius: 5px;
   overflow: hidden;
 }
 
 .citation-bar {
-  position: relative;
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--muted);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
   transition: width 0.45s ease;
 }
 
@@ -952,23 +945,209 @@ button:disabled {
   background: linear-gradient(90deg, #fb7185, var(--bad));
 }
 
-.citation-threshold {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  z-index: 2;
-  width: 2px;
-  background: #0f172a;
-  border-radius: 999px;
+.citation-pct {
+  color: var(--text);
+  font-weight: 700;
 }
 
-.citation-footer {
+.citation-flag {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.citation-arrow {
+  grid-column: 3;
+  grid-row: 2;
+  align-self: center;
+  justify-self: end;
+  color: #94a3b8;
+  font-size: 3rem;
+  font-weight: 700;
+}
+
+.citation-open {
+  grid-column: 1 / 2;
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.citation-detail-view {
+  background: var(--panel);
+}
+
+.citation-back {
+  margin-bottom: 1rem;
+}
+
+.citation-detail-hero {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-top: 0.45rem;
+  gap: 1.5rem;
+  padding: 1.35rem;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.10), transparent 32%),
+    linear-gradient(180deg, #fff, #f8fafc);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+}
+
+.citation-detail-kicker {
+  display: inline-flex;
+  margin-bottom: 0.75rem;
+  padding: 0.3rem 0.62rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.citation-detail-hero h2 {
+  margin: 0 0 0.6rem;
+  color: var(--text);
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.citation-detail-hero p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.citation-detail-score {
+  min-width: 112px;
+  padding: 0.85rem;
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.citation-detail-score strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.citation-detail-score span {
+  display: block;
+  margin-top: 0.4rem;
   color: var(--muted);
   font-size: 0.68rem;
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.citation-detail-score.good {
+  border-color: rgba(5, 150, 105, 0.22);
+  background: rgba(5, 150, 105, 0.06);
+}
+
+.citation-detail-score.warn {
+  border-color: rgba(217, 119, 6, 0.24);
+  background: rgba(217, 119, 6, 0.07);
+}
+
+.citation-detail-score.bad {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.07);
+}
+
+.citation-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.citation-info-card,
+.citation-analysis-card {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.citation-info-card span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.citation-info-card strong,
+.citation-info-card a {
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.citation-info-card a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.citation-analysis-card {
+  margin-top: 1rem;
+}
+
+.citation-analysis-card h3 {
+  margin: 0 0 0.65rem;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.citation-analysis-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.superseded-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.superseded-list li {
+  padding: 0.8rem;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.superseded-list strong,
+.superseded-list span {
+  display: block;
+}
+
+.superseded-list strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.superseded-list span {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .report-content {

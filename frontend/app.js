@@ -13,12 +13,13 @@ const AGENT_STEPS = [
 
 const $ = (sel) => document.querySelector(sel);
 let activeInputMeta = null;
+let activeAnalysisPayload = null;
 
 function showWorkspace({ fromLibrary = false, state = "loading" } = {}) {
   $("#composer-screen")?.classList.add("compact", "collapsed");
   $("#papers-library")?.classList.add("hidden");
   const workspace = $("#analysis-workspace");
-  workspace?.classList.remove("hidden", "loading", "report-ready");
+  workspace?.classList.remove("hidden", "loading", "report-ready", "citation-ready");
   workspace?.classList.add(state);
   $("#btn-back-library-top")?.classList.toggle("hidden", !fromLibrary);
   updateComposerSummary();
@@ -31,6 +32,14 @@ function showLibrary() {
   $("#composer-screen")?.classList.remove("compact", "collapsed");
   $("#btn-back-library-top")?.classList.add("hidden");
   renderPapersLibrary();
+}
+
+function showReportView() {
+  $("#analysis-workspace")?.classList.remove("citation-ready");
+  $("#analysis-workspace")?.classList.add("report-ready");
+  $("#citation-detail")?.classList.add("hidden");
+  $(".panel-output")?.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 function expandComposer() {
@@ -113,34 +122,117 @@ function renderCitationGrades(citations) {
   const list = document.createElement("div");
   list.className = "citation-list";
   for (const c of citations) {
-    const item = document.createElement("article");
+    const item = document.createElement("button");
+    item.type = "button";
     const sq = c.source_quality_score;
     const pct = sq != null ? Math.round(sq * 100) : "—";
     const color = scoreColor(sq);
     item.className = `citation-item ${color}`;
+    item.dataset.citationId = c.id || "";
     item.innerHTML = `
-      <div class="citation-main">
-        <div>
-          <h4 class="citation-title">${escapeHtml(c.title || "Untitled")}</h4>
-          <p class="citation-meta">${escapeHtml(c.authors || "Unknown authors")} · ${escapeHtml(c.journal || "Unknown venue")} · ${c.year ?? "?"}</p>
-        </div>
-        <div class="citation-score ${color}">
-          <strong>${pct}%</strong>
-          <span>${escapeHtml(c.recency_flag || "unknown")}</span>
-        </div>
-      </div>
-      <div class="citation-gauge" aria-label="Source quality ${pct}%">
-        <span class="citation-threshold" style="left:70%"></span>
-        <span class="citation-bar ${color}" style="width:${sq != null ? sq * 100 : 0}%"></span>
-      </div>
-      <div class="citation-footer">
-        <span>Source quality</span>
-        <span>Review threshold</span>
-      </div>
+      <span class="citation-title">${escapeHtml(c.title || "Untitled")} (${c.year ?? "?"})</span>
+      <span class="citation-bar-wrap"><span class="citation-bar ${color}" style="width:${sq != null ? sq * 100 : 0}%"></span></span>
+      <span class="citation-pct">${pct}%</span>
+      <span class="citation-flag">${escapeHtml(c.recency_flag || "")}</span>
+      <span class="citation-open">Open citation details</span>
+      <span class="citation-arrow" aria-hidden="true">→</span>
     `;
+    item.addEventListener("click", () => showCitationDetail(c.id));
     list.appendChild(item);
   }
   root.appendChild(list);
+}
+
+function citationAttentionText(citation) {
+  const score = citation.source_quality_score;
+  if (citation.superseded_notes) return citation.superseded_notes;
+  if (citation.recency_flag === "stale") return "This source may be outdated for a fast-moving research area.";
+  if (score != null && score < 0.45) return "This source has a low quality score and should not be used as primary evidence.";
+  if (score != null && score < 0.7) return "This source is usable, but the claim may need stronger or more recent support.";
+  return "This citation looks strong, but it should still be checked against newer related work.";
+}
+
+function doiUrl(doi) {
+  if (!doi) return "";
+  return doi.startsWith("http") ? doi : `https://doi.org/${doi}`;
+}
+
+function showCitationDetail(citationId) {
+  const citation = activeAnalysisPayload?.citations?.find((c) => c.id === citationId);
+  const detail = $("#citation-detail");
+  if (!citation || !detail) return;
+
+  const score = citation.source_quality_score;
+  const pct = score != null ? Math.round(score * 100) : "—";
+  const color = scoreColor(score);
+  const doi = doiUrl(citation.doi);
+  const superseded = citation.superseded_by || [];
+
+  detail.innerHTML = `
+    <button type="button" id="btn-back-report" class="back-library-btn citation-back">← Back to report</button>
+    <div class="citation-detail-hero">
+      <div>
+        <span class="citation-detail-kicker">${escapeHtml(citation.recency_flag || "citation")}</span>
+        <h2>${escapeHtml(citation.title || "Untitled citation")}</h2>
+        <p>${escapeHtml(citation.authors || "Unknown authors")} · ${escapeHtml(citation.journal || "Unknown venue")} · ${citation.year ?? "?"}</p>
+      </div>
+      <div class="citation-detail-score ${color}">
+        <strong>${pct}%</strong>
+        <span>source quality</span>
+      </div>
+    </div>
+
+    <div class="citation-detail-grid">
+      <article class="citation-info-card">
+        <span>Authors</span>
+        <strong>${escapeHtml(citation.authors || "Unknown")}</strong>
+      </article>
+      <article class="citation-info-card">
+        <span>Published</span>
+        <strong>${citation.year ?? "Unknown"}</strong>
+      </article>
+      <article class="citation-info-card">
+        <span>Venue</span>
+        <strong>${escapeHtml(citation.journal || "Unknown")}</strong>
+      </article>
+      <article class="citation-info-card">
+        <span>DOI</span>
+        ${
+          doi
+            ? `<a href="${escapeHtml(doi)}" target="_blank" rel="noreferrer">${escapeHtml(citation.doi)}</a>`
+            : "<strong>Not detected</strong>"
+        }
+      </article>
+    </div>
+
+    <section class="citation-analysis-card">
+      <h3>Why this citation needs review</h3>
+      <p>${escapeHtml(citationAttentionText(citation))}</p>
+    </section>
+
+    <section class="citation-analysis-card">
+      <h3>Superseded or newer related work</h3>
+      ${
+        superseded.length
+          ? `<ul class="superseded-list">${superseded
+              .map(
+                (paper) => `
+                  <li>
+                    <strong>${escapeHtml(paper.title || "Untitled paper")}</strong>
+                    <span>${paper.year ?? "?"}${paper.doi ? ` · ${escapeHtml(paper.doi)}` : ""}</span>
+                  </li>
+                `
+              )
+              .join("")}</ul>`
+          : "<p>No specific superseding papers were detected for this citation.</p>"
+      }
+    </section>
+  `;
+
+  $("#analysis-workspace")?.classList.add("citation-ready");
+  detail.classList.remove("hidden");
+  $("#btn-back-report").addEventListener("click", showReportView);
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 function escapeHtml(s) {
@@ -301,6 +393,9 @@ function updateProgress(progress) {
 }
 
 async function displayAnalysisResult(payload, options = {}) {
+  activeAnalysisPayload = payload;
+  $("#analysis-workspace")?.classList.remove("citation-ready");
+  $("#citation-detail")?.classList.add("hidden");
   setGauges(payload.overall_scores);
   renderCitationGrades(payload.citations);
 
