@@ -91,8 +91,12 @@
 
       <section class="panel panel-output" aria-label="Report">
         <div class="report-heading">
-          <h2>Report</h2>
+          <button type="button" id="btn-back-library-report" class="report-back-link">← Back</button>
         </div>
+
+        <section id="report-title-card" class="report-title-card hidden" aria-label="Report title"></section>
+
+        <section id="key-findings" class="key-findings hidden" aria-label="Key Findings"></section>
 
         <div id="scores-panel" class="scores-panel hidden">
           <div class="gauge" data-metric="source_quality">
@@ -117,12 +121,15 @@
 
         <div id="citation-grades" class="citation-grades hidden"></div>
 
+        <div id="claims-section" class="claims-section hidden"></div>
+
         <article id="report-content" class="report-content">
           <p class="placeholder">Upload a paper or load the demo to see the counter-analysis report.</p>
         </article>
       </section>
 
       <section id="citation-detail" class="panel citation-detail-view hidden" aria-label="Citation detail"></section>
+      <section id="claim-detail" class="panel claim-detail-view hidden" aria-label="Claim detail"></section>
     </main>
   </div>
 

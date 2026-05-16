@@ -444,6 +444,30 @@ body.app-body {
   margin: 0;
 }
 
+.report-back-link {
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.report-back-link:hover {
+  color: var(--text);
+}
+
+.panel .report-back-link,
+.panel .report-back-link:hover {
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
 .progress-heading {
   display: flex;
   align-items: flex-start;
@@ -519,6 +543,14 @@ body.app-body {
 }
 
 .layout.citation-ready .citation-detail-view {
+  display: block;
+}
+
+.layout.claim-ready .panel-output {
+  display: none;
+}
+
+.layout.claim-ready .claim-detail-view {
   display: block;
 }
 
@@ -858,6 +890,78 @@ button:disabled {
   display: block;
 }
 
+.report-title-card {
+  margin-bottom: 1.25rem;
+  padding: 1.25rem;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.report-title-kicker {
+  display: inline-flex;
+  margin-bottom: 0.7rem;
+  padding: 0.28rem 0.6rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.report-title-card h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.6rem, 4vw, 2.35rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.report-title-card p {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.key-findings {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.10), transparent 34%),
+    linear-gradient(180deg, #fff, #f8fafc);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.07);
+}
+
+.key-findings-kicker {
+  display: inline-flex;
+  margin-bottom: 0.65rem;
+  padding: 0.28rem 0.6rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.key-findings h3 {
+  margin: 0 0 0.65rem;
+  color: var(--text);
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+
+.key-findings p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
 .citation-grades h3 {
   font-size: 0.85rem;
   font-weight: 600;
@@ -865,6 +969,162 @@ button:disabled {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.claims-section {
+  margin-bottom: 1.5rem;
+}
+
+.claims-section h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.claim-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.claim-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-rows: auto auto;
+  gap: 0.25rem 0.75rem;
+  padding: 1rem;
+  background: #fff;
+  opacity: 1;
+  border: 0;
+  border-radius: 18px;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.14);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+}
+
+.claim-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.11);
+  transform: translateY(-1px);
+}
+
+.panel .claim-item {
+  background: #fff;
+  opacity: 1;
+  color: inherit;
+  border: 0;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.14);
+}
+
+.panel .claim-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.11);
+}
+
+.claim-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.claim-bar-wrap {
+  grid-column: 1 / 2;
+  align-self: center;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.claim-bar {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--muted);
+}
+
+.claim-bar.good {
+  background: linear-gradient(90deg, #34d399, var(--good));
+}
+
+.claim-bar.warn {
+  background: linear-gradient(90deg, #fbbf24, var(--warn));
+}
+
+.claim-bar.bad {
+  background: linear-gradient(90deg, #fb7185, var(--bad));
+}
+
+.claim-open {
+  grid-column: 1 / 2;
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.claim-arrow {
+  grid-column: 3;
+  grid-row: 2;
+  align-self: center;
+  justify-self: end;
+  color: #94a3b8;
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.claim-pct {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.claim-section {
+  grid-column: 3;
+  grid-row: 1;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.claim-detail-view {
+  background: var(--panel);
+}
+
+.claim-detail-stack {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.claim-detail-card {
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.claim-detail-card > span {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.claim-detail-card p {
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .citation-list {
@@ -1132,6 +1392,18 @@ button:disabled {
   background: #f8fafc;
   border: 1px solid var(--border);
   border-radius: 14px;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+}
+
+.superseded-list li:has(a):hover {
+  background: #fff;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.superseded-list a {
+  display: block;
+  color: inherit;
 }
 
 .superseded-list strong,
@@ -1148,6 +1420,11 @@ button:disabled {
   margin-top: 0.25rem;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.superseded-list .superseded-open {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .report-content {

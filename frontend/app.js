@@ -35,9 +35,10 @@ function showLibrary() {
 }
 
 function showReportView() {
-  $("#analysis-workspace")?.classList.remove("citation-ready");
+  $("#analysis-workspace")?.classList.remove("citation-ready", "claim-ready");
   $("#analysis-workspace")?.classList.add("report-ready");
   $("#citation-detail")?.classList.add("hidden");
+  $("#claim-detail")?.classList.add("hidden");
   $(".panel-output")?.classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "instant" });
 }
@@ -143,6 +144,169 @@ function renderCitationGrades(citations) {
   root.appendChild(list);
 }
 
+function renderClaimsSection(claims) {
+  const root = $("#claims-section");
+  if (!root) return;
+  if (!claims?.length) {
+    root.classList.add("hidden");
+    root.innerHTML = "";
+    return;
+  }
+  root.classList.remove("hidden");
+  root.innerHTML = "<h3>Claims, coverage & counterarguments</h3>";
+  const list = document.createElement("div");
+  list.className = "claim-list";
+  for (const claim of claims) {
+    const score = claim.coverage_score;
+    const pct = score != null ? Math.round(score * 100) : "—";
+    const color = scoreColor(score);
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = `claim-item ${color}`;
+    item.dataset.claimId = claim.id || "";
+    item.innerHTML = `
+      <span class="claim-title">${escapeHtml(claim.text || "Untitled claim")}</span>
+      <span class="claim-bar-wrap"><span class="claim-bar ${color}" style="width:${score != null ? score * 100 : 0}%"></span></span>
+      <span class="claim-pct">${pct}%</span>
+      <span class="claim-section">${escapeHtml(claim.section || "Section")}</span>
+      <span class="claim-open">Open claim details</span>
+      <span class="claim-arrow" aria-hidden="true">→</span>
+    `;
+    item.addEventListener("click", () => showClaimDetail(claim.id));
+    list.appendChild(item);
+  }
+  root.appendChild(list);
+}
+
+function citationTitleById(id) {
+  const citation = activeAnalysisPayload?.citations?.find((c) => c.id === id);
+  return citation?.title || id;
+}
+
+function citationById(id) {
+  return activeAnalysisPayload?.citations?.find((c) => c.id === id);
+}
+
+function externalPaperLink(paper) {
+  return paper.url || doiUrl(paper.doi);
+}
+
+function showClaimDetail(claimId) {
+  const claim = activeAnalysisPayload?.claims?.find((c) => c.id === claimId);
+  const detail = $("#claim-detail");
+  if (!claim || !detail) return;
+
+  const score = claim.coverage_score;
+  const pct = score != null ? Math.round(score * 100) : "—";
+  const color = scoreColor(score);
+  const cited = claim.cited_source_ids || [];
+  const counterarguments = claim.counterarguments || [];
+  const supporting = claim.supporting_sources || [];
+
+  detail.innerHTML = `
+    <button type="button" id="btn-back-report-claim" class="back-library-btn citation-back">← Back to report</button>
+    <div class="citation-detail-hero">
+      <div>
+        <span class="citation-detail-kicker">${escapeHtml(claim.section || "claim")}</span>
+        <h2>${escapeHtml(claim.text || "Untitled claim")}</h2>
+        <p>${cited.length} cited ${cited.length === 1 ? "source" : "sources"} · ${counterarguments.length} ${counterarguments.length === 1 ? "counterargument" : "counterarguments"}</p>
+      </div>
+      <div class="citation-detail-score ${color}">
+        <strong>${pct}%</strong>
+        <span>coverage</span>
+      </div>
+    </div>
+
+    <section class="citation-analysis-card">
+      <h3>Cited sources</h3>
+      ${
+        cited.length
+          ? `<ul class="superseded-list">${cited
+              .map((id) => {
+                const citation = citationById(id);
+                const link = doiUrl(citation?.doi);
+                const content = `
+                  <strong>${escapeHtml(citationTitleById(id))}</strong>
+                  <span>${escapeHtml(citation?.authors || "Unknown authors")}${citation?.year ? ` · ${citation.year}` : ""}${citation?.doi ? ` · ${escapeHtml(citation.doi)}` : ""}</span>
+                `;
+                return `<li>${
+                  link
+                    ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${content}<span class="superseded-open">Open paper ↗</span></a>`
+                    : content
+                }</li>`;
+              })
+              .join("")}</ul>`
+          : "<p>No cited sources were detected for this claim.</p>"
+      }
+    </section>
+
+    <section class="citation-analysis-card">
+      <h3>Counterarguments</h3>
+      ${
+        counterarguments.length
+          ? `<div class="claim-detail-stack">${counterarguments
+              .map(
+                (counter, index) => `
+                  <article class="claim-detail-card">
+                    <span>Counterargument ${index + 1}</span>
+                    <p>${escapeHtml(counter.summary || "No summary available.")}</p>
+                    ${
+                      counter.papers?.length
+                        ? `<ul class="superseded-list">${counter.papers
+                            .map((paper) => {
+                              const link = externalPaperLink(paper);
+                              const content = `
+                                <strong>${escapeHtml(paper.title || "Untitled paper")}</strong>
+                                <span>${escapeHtml(paper.authors || "Unknown authors")} · ${paper.year ?? "?"}</span>
+                                ${paper.relevance ? `<span>${escapeHtml(paper.relevance)}</span>` : ""}
+                              `;
+                              return `<li>${
+                                link
+                                  ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${content}<span class="superseded-open">Open paper ↗</span></a>`
+                                  : content
+                              }</li>`;
+                            })
+                            .join("")}</ul>`
+                        : ""
+                    }
+                  </article>
+                `
+              )
+              .join("")}</div>`
+          : "<p>No counterarguments were detected for this claim.</p>"
+      }
+    </section>
+
+    <section class="citation-analysis-card">
+      <h3>Additional supporting literature</h3>
+      ${
+        supporting.length
+          ? `<ul class="superseded-list">${supporting
+              .map((source) => {
+                const link = externalPaperLink(source);
+                const content = `
+                  <strong>${escapeHtml(source.title || "Untitled source")}</strong>
+                  <span>${escapeHtml(source.authors || "Unknown authors")} · ${source.year ?? "?"}</span>
+                  ${source.note ? `<span>${escapeHtml(source.note)}</span>` : ""}
+                `;
+                return `<li>${
+                  link
+                    ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${content}<span class="superseded-open">Open source ↗</span></a>`
+                    : content
+                }</li>`;
+              })
+              .join("")}</ul>`
+          : "<p>No additional supporting sources were detected for this claim.</p>"
+      }
+    </section>
+  `;
+
+  $("#analysis-workspace")?.classList.add("claim-ready");
+  detail.classList.remove("hidden");
+  $("#btn-back-report-claim").addEventListener("click", showReportView);
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
 function citationAttentionText(citation) {
   const score = citation.source_quality_score;
   if (citation.superseded_notes) return citation.superseded_notes;
@@ -216,12 +380,18 @@ function showCitationDetail(citationId) {
         superseded.length
           ? `<ul class="superseded-list">${superseded
               .map(
-                (paper) => `
-                  <li>
+                (paper) => {
+                  const link = doiUrl(paper.doi);
+                  const content = `
                     <strong>${escapeHtml(paper.title || "Untitled paper")}</strong>
                     <span>${paper.year ?? "?"}${paper.doi ? ` · ${escapeHtml(paper.doi)}` : ""}</span>
-                  </li>
-                `
+                  `;
+                  return `<li>${
+                    link
+                      ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${content}<span class="superseded-open">Open paper ↗</span></a>`
+                      : content
+                  }</li>`;
+                }
               )
               .join("")}</ul>`
           : "<p>No specific superseding papers were detected for this citation.</p>"
@@ -248,10 +418,60 @@ function renderMarkdownReport(markdown) {
   article.innerHTML = typeof marked !== "undefined" ? marked.parse(markdown) : `<pre>${escapeHtml(markdown)}</pre>`;
 }
 
+function stripExecutiveSummary(markdown) {
+  if (!markdown) return markdown;
+  return markdown
+    .replace(/^\s*# .+?(?:\n|$)/m, "")
+    .replace(/^\s*\*Authors \(detected\):\* .+?(?:\n|$)/m, "")
+    .replace(/## Executive summary\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .replace(/## Key Findings\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .replace(/## Overall grades\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .replace(/## Source quality by citation\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .replace(/## Claims, coverage & counterarguments\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .trim();
+}
+
+function renderReportTitle(paper) {
+  const root = $("#report-title-card");
+  if (!root) return;
+  const title = paper?.title || "Untitled draft";
+  const authors = Array.isArray(paper?.authors) ? paper.authors.join(", ") : paper?.authors;
+  root.classList.remove("hidden");
+  root.innerHTML = `
+    <span class="report-title-kicker">Evidentia Report</span>
+    <h1>Evidentia Report: ${escapeHtml(title)}</h1>
+    ${authors ? `<p>${escapeHtml(authors)}</p>` : ""}
+  `;
+}
+
+function renderKeyFindings(summary) {
+  const root = $("#key-findings");
+  if (!root) return;
+  if (!summary) {
+    root.classList.add("hidden");
+    root.innerHTML = "";
+    return;
+  }
+  root.classList.remove("hidden");
+  root.innerHTML = `
+    <div class="key-findings-copy">
+      <span class="key-findings-kicker">Key Findings</span>
+      <h3>What Evidentia found</h3>
+      <p>${escapeHtml(summary)}</p>
+    </div>
+  `;
+}
+
 function resetReportView() {
   $("#scores-panel")?.classList.add("hidden");
   $("#citation-grades")?.classList.add("hidden");
+  $("#claims-section")?.classList.add("hidden");
+  $("#key-findings")?.classList.add("hidden");
+  $("#report-title-card")?.classList.add("hidden");
   $("#citation-grades").innerHTML = "";
+  $("#claims-section").innerHTML = "";
+  $("#key-findings").innerHTML = "";
+  $("#report-title-card").innerHTML = "";
   $("#report-content").innerHTML = '<p class="placeholder">Agents are building the counter-analysis report...</p>';
 }
 
@@ -394,10 +614,14 @@ function updateProgress(progress) {
 
 async function displayAnalysisResult(payload, options = {}) {
   activeAnalysisPayload = payload;
-  $("#analysis-workspace")?.classList.remove("citation-ready");
+  $("#analysis-workspace")?.classList.remove("citation-ready", "claim-ready");
   $("#citation-detail")?.classList.add("hidden");
+  $("#claim-detail")?.classList.add("hidden");
+  renderReportTitle(payload.paper);
+  renderKeyFindings(payload.executive_summary);
   setGauges(payload.overall_scores);
   renderCitationGrades(payload.citations);
+  renderClaimsSection(payload.claims);
 
   let markdown = payload.markdown;
   if (!markdown) {
@@ -406,6 +630,7 @@ async function displayAnalysisResult(payload, options = {}) {
       markdown += "\n\n*Full report will render when Person B wires `GET /report/{id}` with `markdown` from `builder.py`.*";
     }
   }
+  markdown = stripExecutiveSummary(markdown);
   payload.markdown = markdown;
   renderMarkdownReport(markdown);
   $("#analysis-workspace")?.classList.remove("loading");
@@ -528,6 +753,7 @@ function initAnalyzer() {
 
   $("#composer-summary").addEventListener("click", expandComposer);
   $("#btn-back-library-top").addEventListener("click", showLibrary);
+  $("#btn-back-library-report").addEventListener("click", showLibrary);
 
   $("#pdf-file").addEventListener("change", (e) => {
     const file = e.target.files[0];

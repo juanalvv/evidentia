@@ -1,7 +1,7 @@
 # Evidentia Report: Attention Is All You Need (excerpt demo)
 *Authors (detected):* ['Vaswani et al.']
 
-## Executive summary
+## Key Findings
 The draft relies on several foundational citations that remain influential but are partially superseded in efficiency and long-context settings. Two central claims lack direct empirical backing in the cited sources; opposing literature on linear-time alternatives is material. Overall sourcing is strong on architecture history but thin on recent scaling-law critiques.
 
 ## Overall grades

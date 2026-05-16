@@ -36,7 +36,7 @@ def build_report(data: dict[str, Any]) -> dict[str, str]:
 
     summary = data.get("executive_summary")
     if summary:
-        lines.append("## Executive summary")
+        lines.append("## Key Findings")
         lines.append(summary.strip())
         lines.append("")
 
