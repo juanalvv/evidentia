@@ -41,6 +41,7 @@ class Orchestrator:
                 tools=self._tools,
                 model_route=self._router.for_reasoning(),
                 context=self._context,
+                error_sink=errors,
             )
             output.source_checks = source_checks
         except Exception as exc:  # pragma: no cover - runtime safety net
@@ -52,6 +53,7 @@ class Orchestrator:
                 tools=self._tools,
                 model_route=self._router.for_reasoning(),
                 context=self._context,
+                error_sink=errors,
             )
             output.counterarguments = counterarguments
         except Exception as exc:  # pragma: no cover - runtime safety net
@@ -66,6 +68,7 @@ class Orchestrator:
                 model_route_reasoning=self._router.for_reasoning(),
                 model_route_scoring=self._router.for_scoring(),
                 context=self._context,
+                error_sink=errors,
             )
             output.grader = grader
         except Exception as exc:  # pragma: no cover - runtime safety net

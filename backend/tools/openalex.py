@@ -62,7 +62,7 @@ def _normalize_openalex_work(work: Dict[str, Any]) -> Dict[str, Any]:
 
 async def search_openalex(
     query: str,
-    limit: int = 5,
+    limit: int = 15,
     client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """Search OpenAlex works by query and return normalized results."""
