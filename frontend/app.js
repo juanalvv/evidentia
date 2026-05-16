@@ -609,6 +609,7 @@ function resetReportView() {
   $("#data-methods-section")?.classList.add("hidden");
   $("#final-verdict")?.classList.add("hidden");
   $("#report-footer-note")?.classList.add("hidden");
+  $("#btn-export-pdf")?.classList.add("hidden");
   $("#key-findings")?.classList.add("hidden");
   $("#report-title-card")?.classList.add("hidden");
   $("#citation-grades").innerHTML = "";
@@ -666,6 +667,108 @@ function setSavedPapers(papers) {
 
 function paperTitleFromPayload(payload, meta) {
   return payload.paper?.title || meta?.title || "Untitled analysis";
+}
+
+function safeFilename(value) {
+  return String(value || "evidentia-report")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
+    .replace(/\s+/g, "-")
+    .slice(0, 80)
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "evidentia-report";
+}
+
+function pdfToneColor(el) {
+  if (el.classList.contains("good")) return "#059669";
+  if (el.classList.contains("warn")) return "#d97706";
+  if (el.classList.contains("bad")) return "#dc2626";
+  return "#64748b";
+}
+
+function preparePdfVisuals(root) {
+  root.querySelectorAll(".score-ring").forEach((ring) => {
+    const score = Number.parseFloat(ring.style.getPropertyValue("--score") || "0");
+    const pct = Math.max(0, Math.min(100, Number.isNaN(score) ? 0 : score));
+    const color = pdfToneColor(ring);
+    const label = ring.querySelector(".gauge-value, strong")?.textContent?.trim() || `${Math.round(pct)}%`;
+    const radius = 44;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference * (1 - pct / 100);
+    const svg = document.createElement("div");
+    svg.innerHTML = `
+      <svg width="112" height="112" viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg" style="display:block">
+        <circle cx="56" cy="56" r="${radius}" fill="#fff" stroke="#e2e8f0" stroke-width="12"></circle>
+        <circle cx="56" cy="56" r="${radius}" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round"
+          stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" transform="rotate(-90 56 56)"></circle>
+        <text x="56" y="61" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#0f172a">${label}</text>
+      </svg>
+    `;
+    ring.replaceWith(svg.firstElementChild);
+  });
+
+  root.querySelectorAll(".citation-bar, .claim-bar").forEach((bar) => {
+    bar.style.background = pdfToneColor(bar);
+    bar.style.height = "100%";
+    bar.style.display = "block";
+    bar.style.borderRadius = "999px";
+  });
+
+  root.querySelectorAll(".citation-bar-wrap, .claim-bar-wrap").forEach((wrap) => {
+    wrap.style.background = "#e2e8f0";
+    wrap.style.minHeight = "10px";
+    wrap.style.borderRadius = "999px";
+    wrap.style.overflow = "hidden";
+  });
+}
+
+async function exportReportPdf() {
+  const button = $("#btn-export-pdf");
+  const report = $(".panel-output");
+  if (!report || !activeAnalysisPayload) return;
+
+  if (typeof window.html2pdf === "undefined") {
+    window.print();
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.classList.add("exporting");
+  }
+
+  const exportNode = report.cloneNode(true);
+  exportNode.querySelector(".report-heading")?.remove();
+  exportNode.classList.add("pdf-export-content");
+
+  const shell = document.createElement("div");
+  shell.className = "pdf-export-shell";
+  shell.appendChild(exportNode);
+  document.body.appendChild(shell);
+  preparePdfVisuals(exportNode);
+  const exportWidth = Math.ceil(exportNode.scrollWidth);
+
+  const title = paperTitleFromPayload(activeAnalysisPayload, activeInputMeta);
+  const filename = `${safeFilename(title)}-evidentia-report.pdf`;
+
+  try {
+    await window.html2pdf()
+      .set({
+        margin: [0.35, 0.35, 0.45, 0.35],
+        filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: exportWidth, scrollX: 0, scrollY: 0 },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      })
+      .from(exportNode)
+      .save();
+  } finally {
+    shell.remove();
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("exporting");
+    }
+  }
 }
 
 function savePaperAnalysis(payload, meta = activeInputMeta) {
@@ -783,6 +886,7 @@ async function displayAnalysisResult(payload, options = {}) {
   $("#analysis-workspace")?.classList.remove("loading");
   $("#analysis-workspace")?.classList.add("report-ready");
   $("#report-footer-note")?.classList.remove("hidden");
+  $("#btn-export-pdf")?.classList.remove("hidden");
   if (options.save) savePaperAnalysis(payload, options.meta);
 }
 
@@ -902,6 +1006,7 @@ function initAnalyzer() {
   $("#composer-summary").addEventListener("click", expandComposer);
   $("#btn-back-library-top").addEventListener("click", showLibrary);
   $("#btn-back-library-report").addEventListener("click", showLibrary);
+  $("#btn-export-pdf").addEventListener("click", exportReportPdf);
 
   $("#pdf-file").addEventListener("change", (e) => {
     const file = e.target.files[0];
