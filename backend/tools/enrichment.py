@@ -1,5 +1,7 @@
+import asyncio
+from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar
+
 import httpx
-from typing import Any, Dict, Optional
 
 from backend.tools.crossref import fetch_crossref_metadata
 from backend.tools.errors import METADATA_NOT_FOUND, summarize_partial_errors
@@ -32,15 +34,43 @@ async def fetch_doi_metadata(
     }
 
 
+T = TypeVar("T")
+
+
+async def _safe_enrichment_call(
+    fetcher: Callable[[], Awaitable[T]],
+    label: str,
+) -> Any:
+    """Run an enrichment fetcher; return a structured error dict instead of raising on HTTP failures."""
+    try:
+        return await fetcher()
+    except httpx.TimeoutException as exc:
+        return {
+            "success": False,
+            "error": "timeout",
+            "source": label,
+            "details": str(exc) or "request timed out",
+        }
+    except httpx.HTTPError as exc:
+        return {
+            "success": False,
+            "error": "http_error",
+            "source": label,
+            "details": str(exc) or type(exc).__name__,
+        }
+
+
 async def enrich_doi(
     doi: str,
     email: Optional[str] = None,
     client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """Combine metadata, citation graph, and OA lookup for a DOI."""
-    metadata = await fetch_doi_metadata(doi, client=client)
-    citations = await fetch_opencitations_by_doi(doi, client=client)
-    oa = await fetch_unpaywall_by_doi(doi, email=email, client=client)
+    metadata, citations, oa = await asyncio.gather(
+        _safe_enrichment_call(lambda: fetch_doi_metadata(doi, client=client), "metadata"),
+        _safe_enrichment_call(lambda: fetch_opencitations_by_doi(doi, client=client), "opencitations"),
+        _safe_enrichment_call(lambda: fetch_unpaywall_by_doi(doi, email=email, client=client), "unpaywall"),
+    )
 
     partial = {"metadata": metadata, "citations": citations, "oa": oa}
 

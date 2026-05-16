@@ -1,3 +1,4 @@
+import asyncio
 import urllib.parse
 from typing import Any, Dict, List, Optional
 
@@ -93,8 +94,10 @@ async def fetch_opencitations_by_doi(
     client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """Fetch both references and citations for a DOI from OpenCitations."""
-    references = await fetch_opencitations_references(doi, client=client)
-    citations = await fetch_opencitations_citations(doi, client=client)
+    references, citations = await asyncio.gather(
+        fetch_opencitations_references(doi, client=client),
+        fetch_opencitations_citations(doi, client=client),
+    )
 
     return {
         "success": references.get("success") is True and citations.get("success") is True,

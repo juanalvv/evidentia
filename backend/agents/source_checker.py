@@ -5,6 +5,9 @@ from typing import Any, Dict, List, Optional
 from .model_router import ModelRoute
 from .schemas import AgentError, Citation, SourceCheck
 from ..memory.context_store import ContextStore
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 async def run_source_check(
@@ -21,9 +24,11 @@ async def run_source_check(
 
     results: List[SourceCheck] = []
     for citation in citations:
+        logger.info("SourceChecker: checking citation %s", citation.citation_id)
         check = SourceCheck(citation_id=citation.citation_id)
 
         if crossref and citation.doi:
+            logger.info("SourceChecker: calling crossref.lookup_doi for %s", citation.doi)
             meta = await crossref.lookup_doi(citation.doi)
             meta = _unwrap_tool_metadata(meta, "crossref", error_sink)
             check.normalized_title = meta.get("title") or citation.title
@@ -35,6 +40,7 @@ async def run_source_check(
             check.normalized_doi = citation.doi
 
         if semscholar:
+            logger.info("SourceChecker: calling semantic_scholar.find_contradiction_signals for %s", check.normalized_title or citation.title)
             signals = await semscholar.find_contradiction_signals(
                 title=check.normalized_title or citation.title,
                 doi=check.normalized_doi or citation.doi,

@@ -2,6 +2,7 @@ import os
 import tempfile
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+import logging
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from backend.job_models import coerce_progress, new_job_document, progress_updat
 from backend.report.builder import build_report
 from backend.tools.enrichment import enrich_doi
 from backend.utils.analysis_stub import build_failed_analysis_result, build_ingestion_analysis_result
+from backend.utils.errors import format_exception
 from backend.utils.citation_extractor import prepare_reference_for_model
 from backend.utils.ingest import SourceKind, build_submission_payload
 from backend.utils.pdf_parser import parse_pdf, parse_text
@@ -30,6 +32,9 @@ def _cors_origins() -> List[str]:
 
 
 app = FastAPI(title="Evidentia Backend API")
+
+# Basic logging configuration for agent activity
+logging.basicConfig(level=logging.INFO)
 
 app.add_middleware(
     CORSMiddleware,
@@ -100,7 +105,15 @@ async def _ingest_references(
     total_refs = len(reference_models)
     for index, reference in enumerate(reference_models, start=1):
         if reference.get("doi"):
-            enrichment = await enrich_doi(reference["doi"], email=email)
+            try:
+                enrichment = await enrich_doi(reference["doi"], email=email)
+            except Exception as exc:
+                enrichment = {
+                    "success": False,
+                    "doi": reference["doi"],
+                    "error": "enrichment_failed",
+                    "details": format_exception(exc),
+                }
             doi_enrichment_results.append({"reference": reference, "enrichment": enrichment})
         pct = min(80, 10 + int(60 * index / max(1, total_refs)))
         _set_progress(job_id, "ingest", pct, "Processing references…", "orchestrator")
@@ -178,11 +191,11 @@ async def _process_analysis_job(
         else:
             raise ValueError("No input provided for analysis.")
 
-        _set_progress(job_id, "done", 100, "Ingestion complete", "orchestrator")
+        _set_progress(job_id, "analyze", 85, "Running agent pipeline…", "orchestrator")
         ingest = jobs[job_id].get("ingest")
         if not ingest:
             raise RuntimeError("Internal error: ingest payload missing after successful run.")
-        analysis_result = build_ingestion_analysis_result(
+        analysis_result = await build_ingestion_analysis_result(
             job_id,
             ingest,
             result["analysis"],
@@ -191,14 +204,15 @@ async def _process_analysis_job(
         analysis_result["markdown"] = build_report(analysis_result)["markdown"]
         _save_job(job_id, {"status": "completed", "result": result, "analysis_result": analysis_result})
     except Exception as exc:
-        _set_progress(job_id, "done", 100, str(exc), "orchestrator")
+        error_msg = format_exception(exc)
+        _set_progress(job_id, "done", 100, error_msg, "orchestrator")
         failed = build_failed_analysis_result(
             job_id,
-            str(exc),
+            error_msg,
             created_at_iso=str(jobs[job_id]["created_at"]),
         )
         failed["markdown"] = build_report(failed)["markdown"]
-        _save_job(job_id, {"status": "failed", "error": str(exc), "analysis_result": failed})
+        _save_job(job_id, {"status": "failed", "error": error_msg, "analysis_result": failed})
 
 
 @app.post("/analyze")

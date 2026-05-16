@@ -7,6 +7,9 @@ from .model_router import ModelRoute
 from .schemas import AgentError, Claim, CounterArgument, CounterPaper
 from .prompts.loader import prompt_loader
 from ..memory.context_store import ContextStore
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def run_counter_research(
     claims: List[Claim],
@@ -21,13 +24,16 @@ async def run_counter_research(
 
     results: List[CounterArgument] = []
     for claim in claims:
+        logger.info("CounterResearcher: building query for claim %s", claim.claim_id)
         query = await _build_query(claim.text, llm, model_route, error_sink)
         papers: List[CounterPaper] = []
 
         if semscholar:
+            logger.info("CounterResearcher: calling semantic_scholar.search_opposing")
             sem_result = await semscholar.search_opposing(query)
             papers.extend(_unwrap_tool_papers(sem_result, "semantic_scholar", error_sink))
         if openalex:
+            logger.info("CounterResearcher: calling openalex.search_opposing")
             oa_result = await openalex.search_opposing(query)
             papers.extend(_unwrap_tool_papers(oa_result, "openalex", error_sink))
 
@@ -47,6 +53,7 @@ async def _build_query(
     if not llm:
         return claim_text
     prompt = prompt_loader.load("research_query", claim_text=claim_text)
+    logger.info("CounterResearcher: calling llm.complete to build query")
     raw_query = await llm.complete(prompt=prompt, model=model_route.name, max_tokens=64)
     if _is_llm_error(raw_query):
         _record_error(error_sink, "llm", "llm_error", {"stage": "query", "details": raw_query})

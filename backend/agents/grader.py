@@ -8,6 +8,9 @@ from .prompts.loader import prompt_loader
 from ..memory.context_store import ContextStore
 import re
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _extract_scores_from_reasoning(response: str) -> Dict[str, Any]:
     """Fallback: extract citation scores from Nemotron's chain-of-thought reasoning."""
@@ -70,6 +73,7 @@ async def run_grader(
     scores: List[SourceQualityScore] = []
 
     for citation in citations:
+        logger.info("Grader: scoring citation %s", citation.citation_id)
         score, rubric = await _score_citation(
             citation,
             source_checks,
@@ -132,6 +136,7 @@ async def _coverage_score(
     if not llm:
         return CoverageScore(score=0.5, explanation="Coverage estimated without LLM.")
 
+    logger.info("Grader: calling llm.complete for coverage scoring")
     prompt = prompt_loader.load(
         "coverage_score",
         claims_list=[claim.text for claim in claims],

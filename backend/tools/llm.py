@@ -28,7 +28,8 @@ class LLMClient:
         if model == "nemotron-super":
             model_id = "nvidia/nemotron-3-super-120b-a12b"
         elif model == "nemotron-nano":
-            model_id = "nvidia/nemotron-4-340b-instruct"
+            # Use the same Nemotron 3 Super endpoint for scoring until a dedicated nano model is configured.
+            model_id = "nvidia/nemotron-3-super-120b-a12b"
         
         try:
             response = await self.client.chat.completions.create(

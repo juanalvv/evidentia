@@ -9,6 +9,9 @@ from .source_checker import run_source_check
 from .counter_researcher import run_counter_research
 from .grader import run_grader
 from ..memory.context_store import ContextStore
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Orchestrator:
@@ -36,6 +39,7 @@ class Orchestrator:
         self._context.set("citations", [citation.model_dump() for citation in payload.citations])
 
         try:
+            logger.info("Orchestrator: starting source check for submission %s", payload.submission_id)
             source_checks = await run_source_check(
                 payload.citations,
                 tools=self._tools,
@@ -48,6 +52,7 @@ class Orchestrator:
             errors.append(AgentError(agent="source_checker", message=str(exc)))
 
         try:
+            logger.info("Orchestrator: starting counter research for submission %s", payload.submission_id)
             counterarguments = await run_counter_research(
                 payload.claims,
                 tools=self._tools,
@@ -60,6 +65,7 @@ class Orchestrator:
             errors.append(AgentError(agent="counter_researcher", message=str(exc)))
 
         try:
+            logger.info("Orchestrator: starting grader for submission %s", payload.submission_id)
             grader = await run_grader(
                 payload.claims,
                 payload.citations,
