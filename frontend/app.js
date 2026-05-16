@@ -139,16 +139,7 @@ async function displayAnalysisResult(payload) {
 
   let markdown = payload.markdown;
   if (!markdown) {
-    try {
-      const mod = await import("../backend/report/builder.py");
-      void mod;
-    } catch {
-      /* frontend-only fallback */
-    }
-    markdown = buildMarkdownClientSide(payload);
-    if (payload.claims?.length) {
-      markdown += "\n\n*Full report will render when Person B wires `GET /report/{id}` with `markdown` from `builder.py`.*";
-    }
+    markdown = await fetchMarkdownFromPayload(payload);
   }
   renderMarkdownReport(markdown);
 }

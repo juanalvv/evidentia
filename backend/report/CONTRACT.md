@@ -8,9 +8,23 @@ Person B exposes these endpoints. Person A's orchestrator writes analysis data i
 
 | Method | Path | Body / response |
 |--------|------|-----------------|
-| `POST` | `/analyze` | `multipart`: `file` (PDF) **or** `text` (plain). Optional `doi`, `email`. Returns `{ "job_id", "status" }` |
+| `POST` | `/analyze` | `multipart/form-data`: see [POST /analyze](#post-analyze-multipart) below. **Response:** `{ "job_id": "<uuid>", "status": "pending" }` (HTTP 200). Poll `GET /status/{job_id}` until `completed` or `failed`. |
 | `GET` | `/status/{job_id}` | `{ "job_id", "status", "progress", "error" }` — see progress schema |
 | `GET` | `/report/{job_id}` | **HTTP 202** while `pending`/`running` (not ready). **HTTP 200** body = **SCHEMAS.md Final AnalysisResult** when `completed` or `failed` (same top-level keys; `status` field inside JSON matches the job). |
+| `POST` | `/report/build` | JSON body = **SCHEMAS.md Final AnalysisResult** (e.g. `fixtures/mock_analysis.json`). Returns `{ "markdown": "..." }` from `build_report()`. |
+
+### POST /analyze (multipart)
+
+Use `multipart/form-data`. At least one of **`file`**, **`text`**, or **`doi`** must be present (otherwise **400**).
+
+| Field | Type | Notes |
+|--------|------|--------|
+| `file` | upload | PDF bytes; parsed for full text + references. |
+| `text` | string | Plain draft; references section extracted like PDF text. |
+| `doi` | string | **DOI-only path:** skips file/text; runs enrichment for this DOI (Unpaywall email optional). |
+| `email` | string | Optional; forwarded to Unpaywall as contact email (see `.env.example` / `UNPAYWALL_EMAIL`). |
+
+**Response body:** `{ "job_id": "<uuid>", "status": "pending" }`. The worker runs in a background task; `status` stays `pending` until the task flips the job to `running` then `completed` or `failed`.
 
 ### `progress` (for UI polling)
 

@@ -18,6 +18,10 @@ An academic paper "counterer". That is, a tool to which academic researchers can
 - **Person B:** `backend/main.py`, `backend/tools/`, `backend/utils/` — tool contracts: [backend/tools/TOOLS.md](backend/tools/TOOLS.md)
 - **Person C:** `backend/report/`, `frontend/` — see [frontend/README.md](frontend/README.md)
 
+## Backend API (Person B)
+
+On Linux or Brev, from the repo root: `chmod +x deploy.sh && ./deploy.sh`. That installs dependencies from `requirements.txt` and runs `uvicorn` on **0.0.0.0:8000**. Copy [`.env.example`](.env.example) to `.env` and set values such as `UNPAYWALL_EMAIL` before calling Unpaywall-backed paths. For the static UI to call this API, Person C sets `window.SCHOLAR_COUNTER_API` in [`frontend/config.js`](frontend/config.js) to the reachable base URL (for example `http://localhost:8000` locally or `http://YOUR-BREV-HOST:8000` on the instance), then serves the repo with `python -m http.server 8080` and opens `/frontend/` as in [frontend/README.md](frontend/README.md).
+
 ## Quick demo (Person C)
 
 ```powershell

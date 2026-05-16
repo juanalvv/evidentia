@@ -209,6 +209,7 @@ async def analyze(
     text: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
 ) -> Dict[str, Any]:
+    """Queue ingestion / analysis. Returns job id and initial ``pending`` status (CONTRACT.md)."""
     if not any([doi, text, file]):
         raise HTTPException(status_code=400, detail="Provide a DOI, text, or PDF file to analyze.")
 
@@ -222,7 +223,7 @@ async def analyze(
     jobs[job_id] = new_job_document()
     background_tasks.add_task(_process_analysis_job, job_id, doi, text, file_bytes, email)
 
-    return {"job_id": job_id, "status": jobs[job_id]["status"]}
+    return {"job_id": job_id, "status": "pending"}
 
 
 @app.get("/status/{job_id}")
@@ -273,3 +274,9 @@ async def job_report(job_id: str) -> Dict[str, Any]:
             detail="Completed job is missing analysis_result; this is a server bug.",
         )
     return analysis_result
+
+
+@app.post("/report/build")
+async def report_build(payload: Dict[str, Any]) -> Dict[str, str]:
+    """Render markdown from a Final AnalysisResult JSON body (SCHEMAS.md)."""
+    return build_report(payload)
