@@ -1,3 +1,6 @@
+pydantic>=2.0,<3.0
+openai
+python-dotenv
 # Evidentia backend — Person B data layer + FastAPI
 fastapi>=0.110
 uvicorn[standard]>=0.27

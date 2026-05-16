@@ -1,0 +1,6 @@
+{
+  "name": "scholarcounter",
+  "description": "NemoClaw sandbox for Evidentia agents",
+  "workspace": "/tmp/openclaw",
+  "policy": "policy.yaml"
+}

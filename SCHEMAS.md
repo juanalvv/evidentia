@@ -1,8 +1,6 @@
-# ScholarCounter Schemas
+# Evidentia Schemas
 
 This document defines the JSON contracts between Person A (agents), Person B (tools/backend), and Person C (report builder).
-
-The report builder and frontend consume the **Final AnalysisResult / Report Payload** at the bottom of this document. The earlier schemas are useful intermediate contracts for the ingestion, agent, and grading layers.
 
 ## Input Payload
 
