@@ -36,7 +36,7 @@ def build_report(data: dict[str, Any]) -> dict[str, str]:
 
     summary = data.get("executive_summary")
     if summary:
-        lines.append("## Executive summary")
+        lines.append("## Key Findings")
         lines.append(summary.strip())
         lines.append("")
 
@@ -120,6 +120,27 @@ def build_report(data: dict[str, Any]) -> dict[str, str]:
                     f"| {row.get('aspect', '')} | {row.get('paper_value', '')} | "
                     f"{row.get('field_norm', '')} | `{row.get('verdict', '')}` |"
                 )
+        lines.append("")
+
+    final_verdict = data.get("final_verdict") or {}
+    if isinstance(final_verdict, str):
+        final_verdict = {"status": final_verdict}
+    if final_verdict.get("status"):
+        lines.append("## Final Verdict")
+        lines.append(f"**{final_verdict['status']}**")
+        if final_verdict.get("summary"):
+            lines.append("")
+            lines.append(final_verdict["summary"].strip())
+        if final_verdict.get("rationale"):
+            lines.append("")
+            lines.append("**Why this verdict:**")
+            for item in final_verdict["rationale"]:
+                lines.append(f"- {item}")
+        if final_verdict.get("next_steps"):
+            lines.append("")
+            lines.append("**Next best action:**")
+            for item in final_verdict["next_steps"]:
+                lines.append(f"- {item}")
         lines.append("")
 
     errors = data.get("errors") or []

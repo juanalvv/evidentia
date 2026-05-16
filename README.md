@@ -16,4 +16,4 @@ python backend/report/builder.py
 python -m http.server 8080
 ```
 
-→ http://localhost:8080/frontend/?demo=1
+→ http://localhost:8080/frontend/
