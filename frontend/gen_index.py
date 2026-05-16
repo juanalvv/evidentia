@@ -30,14 +30,14 @@ html = "\n".join(
         "<head>",
         '  <meta charset="UTF-8" />',
         '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
-        "  <title>ScholarCounter — Evidentia</title>",
+        "  <title>Evidentia</title>",
         '  <link rel="stylesheet" href="styles.css" />',
         '  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>',
         "</head>",
         "<body>",
         tag(
             "header",
-            tag(D, tag("h1", "ScholarCounter") + tag("p", "Academic draft counter-analysis · Cloud demo", cls="tagline")),
+            tag(D, tag("h1", "Evidentia") + tag("p", "Academic draft counter-analysis · Cloud demo", cls="tagline")),
             cls="app-header",
         ),
         tag(

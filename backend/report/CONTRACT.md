@@ -1,4 +1,4 @@
-# ScholarCounter — Report API contract (Person C ↔ A/B)
+# Evidentia — Report API contract (Person C ↔ A/B)
 
 Person B exposes these endpoints. Person A's orchestrator writes the JSON shape below into job storage; Person C consumes it via `GET /report/{job_id}`.
 

@@ -1,4 +1,4 @@
-# Evidentia / ScholarCounter
+# Evidentia
 
 Hack-a-Claw Cloud Track — academic paper counter-analysis agent.
 

@@ -31,7 +31,7 @@ python backend/report/builder.py
 Set in `frontend/config.js`:
 
 ```js
-window.SCHOLAR_COUNTER_API = "http://YOUR-BREV-HOST:8000";
+window.EVIDENTIA_API = "http://YOUR-BREV-HOST:8000";
 ```
 
 Endpoints: `POST /analyze`, `GET /status/{id}`, `GET /report/{id}` — see CONTRACT.md.

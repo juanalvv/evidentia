@@ -1,4 +1,4 @@
-const API = window.SCHOLAR_COUNTER_API || "";
+const API = window.EVIDENTIA_API || "";
 const MOCK_FIXTURE = "../backend/report/fixtures/mock_analysis.json";
 
 const AGENT_STEPS = [
@@ -210,8 +210,8 @@ $("#analyze-form").addEventListener("submit", async (e) => {
   if (file) fd.append("file", file);
   if (text) fd.append("text", text);
 
-  if (!API && !window.SCHOLAR_COUNTER_USE_MOCK) {
-    alert("Backend not configured yet. Use “Load demo report” or set SCHOLAR_COUNTER_API in config.js.");
+  if (!API && !window.EVIDENTIA_USE_MOCK) {
+    alert("Backend not configured yet. Use “Load demo report” or set EVIDENTIA_API in config.js.");
     return;
   }
   await startAnalyze(fd);
