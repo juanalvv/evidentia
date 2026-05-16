@@ -7,7 +7,7 @@ import httpx
 class HTTPClient:
     """Shared HTTP client with retry and backoff support."""
 
-    def __init__(self, timeout: float = 15.0):
+    def __init__(self, timeout: float = 30.0):
         self.client = httpx.AsyncClient(timeout=timeout)
 
     async def get_with_retries(
@@ -36,6 +36,17 @@ class HTTPClient:
 
 # Singleton instance for shared use
 http_client = HTTPClient()
+
+
+async def request_get(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    client: Optional[httpx.AsyncClient] = None,
+) -> httpx.Response:
+    """GET with retries when using the shared client; plain GET for injected test clients."""
+    if client is None:
+        return await http_client.get_with_retries(url, headers=headers)
+    return await client.get(url, headers=headers)
 
 
 if __name__ == "__main__":

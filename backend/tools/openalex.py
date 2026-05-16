@@ -2,8 +2,8 @@ import urllib.parse
 from typing import Any, Dict, List, Optional
 
 import httpx
-
-from backend.tools.http_client import http_client
+from backend.tools.cache import cache, make_cache_key
+from backend.tools.http_client import request_get
 
 OPENALEX_BASE_URL = "https://api.openalex.org"
 OPENALEX_WORKS_ENDPOINT = f"{OPENALEX_BASE_URL}/works"
@@ -62,48 +62,50 @@ def _normalize_openalex_work(work: Dict[str, Any]) -> Dict[str, Any]:
 
 async def search_openalex(
     query: str,
-    limit: int = 15,
+    limit: int = 5,
     client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """Search OpenAlex works by query and return normalized results."""
-    encoded_query = urllib.parse.quote_plus(query.strip())
-    url = f"{OPENALEX_WORKS_ENDPOINT}?search={encoded_query}&per_page={limit}"
+    cache_key = make_cache_key("openalex", "search", query, str(limit))
 
-    if client is None:
-        response = await http_client.get_with_retries(url)
-    else:
-        response = await client.get(url)
+    async def fetch() -> Dict[str, Any]:
+        encoded_query = urllib.parse.quote_plus(query.strip())
+        url = f"{OPENALEX_WORKS_ENDPOINT}?search={encoded_query}&per_page={limit}"
 
-    if response.status_code == 429:
+        response = await request_get(url, client=client)
+
+        if response.status_code == 429:
+            return {
+                "success": False,
+                "error": "rate_limited",
+                "query": query,
+                "details": "OpenAlex rate-limited after retries",
+            }
+
+        try:
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            return {"success": False, "error": "http_error", "query": query, "details": str(exc)}
+        except ValueError as exc:
+            return {"success": False, "error": "parse_error", "query": query, "details": str(exc)}
+
+        if not isinstance(payload, dict) or "results" not in payload:
+            return {"success": False, "error": "parse_error", "query": query, "details": "Unexpected response format"}
+
+        papers = [
+            _normalize_openalex_work(item)
+            for item in payload.get("results", [])
+            if isinstance(item, dict)
+        ]
         return {
-            "success": False,
-            "error": "rate_limited",
+            "success": True,
             "query": query,
-            "details": "OpenAlex rate-limited after retries",
+            "data": papers,
+            "meta": payload.get("meta"),
         }
 
-    try:
-        response.raise_for_status()
-        payload = response.json()
-    except httpx.HTTPStatusError as exc:
-        return {"success": False, "error": "http_error", "query": query, "details": str(exc)}
-    except ValueError as exc:
-        return {"success": False, "error": "parse_error", "query": query, "details": str(exc)}
-
-    if not isinstance(payload, dict) or "results" not in payload:
-        return {"success": False, "error": "parse_error", "query": query, "details": "Unexpected response format"}
-
-    papers = [
-        _normalize_openalex_work(item)
-        for item in payload.get("results", [])
-        if isinstance(item, dict)
-    ]
-    return {
-        "success": True,
-        "query": query,
-        "data": papers,
-        "meta": payload.get("meta"),
-    }
+    return await cache.memoize(cache_key, fetch, ttl=3600)
 
 
 async def fetch_openalex_by_doi(
@@ -111,44 +113,46 @@ async def fetch_openalex_by_doi(
     client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """Lookup an OpenAlex work by DOI."""
-    encoded_doi = urllib.parse.quote_plus(doi.strip())
-    url = f"{OPENALEX_WORKS_ENDPOINT}?filter=doi:{encoded_doi}&per_page=1"
+    cache_key = make_cache_key("openalex", "doi", doi.lower())
 
-    if client is None:
-        response = await http_client.get_with_retries(url)
-    else:
-        response = await client.get(url)
+    async def fetch() -> Dict[str, Any]:
+        encoded_doi = urllib.parse.quote_plus(doi.strip())
+        url = f"{OPENALEX_WORKS_ENDPOINT}?filter=doi:{encoded_doi}&per_page=1"
 
-    if response.status_code == 429:
-        return {
-            "success": False,
-            "error": "rate_limited",
-            "doi": doi,
-            "details": "OpenAlex rate-limited after retries",
-        }
+        response = await request_get(url, client=client)
 
-    try:
-        response.raise_for_status()
-        payload = response.json()
-    except httpx.HTTPStatusError as exc:
-        return {"success": False, "error": "http_error", "doi": doi, "details": str(exc)}
-    except ValueError as exc:
-        return {"success": False, "error": "parse_error", "doi": doi, "details": str(exc)}
+        if response.status_code == 429:
+            return {
+                "success": False,
+                "error": "rate_limited",
+                "doi": doi,
+                "details": "OpenAlex rate-limited after retries",
+            }
 
-    if not isinstance(payload, dict) or "results" not in payload:
-        return {"success": False, "error": "parse_error", "doi": doi, "details": "Unexpected response format"}
+        try:
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            return {"success": False, "error": "http_error", "doi": doi, "details": str(exc)}
+        except ValueError as exc:
+            return {"success": False, "error": "parse_error", "doi": doi, "details": str(exc)}
 
-    results = payload.get("results", [])
-    if not isinstance(results, list) or not results:
-        return {"success": False, "error": "not_found", "doi": doi, "details": "No OpenAlex work found for DOI"}
+        if not isinstance(payload, dict) or "results" not in payload:
+            return {"success": False, "error": "parse_error", "doi": doi, "details": "Unexpected response format"}
 
-    work = results[0]
-    if not isinstance(work, dict):
-        return {"success": False, "error": "parse_error", "doi": doi, "details": "Invalid work record"}
+        results = payload.get("results", [])
+        if not isinstance(results, list) or not results:
+            return {"success": False, "error": "not_found", "doi": doi, "details": "No OpenAlex work found for DOI"}
 
-    normalized = _normalize_openalex_work(work)
-    normalized["doi"] = normalized.get("doi") or doi
-    return {"success": True, "doi": doi, "data": normalized}
+        work = results[0]
+        if not isinstance(work, dict):
+            return {"success": False, "error": "parse_error", "doi": doi, "details": "Invalid work record"}
+
+        normalized = _normalize_openalex_work(work)
+        normalized["doi"] = normalized.get("doi") or doi
+        return {"success": True, "doi": doi, "data": normalized}
+
+    return await cache.memoize(cache_key, fetch, ttl=3600)
 
 
 if __name__ == "__main__":

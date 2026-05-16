@@ -1,341 +1,282 @@
-import sys
 import os
-import asyncio
-import json
-from datetime import datetime, timezone
-from typing import Dict, Any, List
+import tempfile
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
-# Add the project root to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from backend.agents.orchestrator import Orchestrator, blocked_action_stub
-from backend.agents.model_router import ModelRouter
-from backend.agents.schemas import InputPayload, Claim, Citation, CounterPaper
-from backend.memory.context_store import ContextStore
-from backend.tools.crossref import fetch_crossref_metadata
-from backend.tools.openalex import search_openalex
-from backend.tools.llm import LLMClient
-from backend.tools.stubs import SemanticScholarStub
+from backend.job_models import coerce_progress, new_job_document, progress_update
+from backend.report.builder import build_report
+from backend.tools.enrichment import enrich_doi
+from backend.utils.analysis_stub import build_failed_analysis_result, build_ingestion_analysis_result
+from backend.utils.citation_extractor import prepare_reference_for_model
+from backend.utils.ingest import SourceKind, build_submission_payload
+from backend.utils.pdf_parser import parse_pdf, parse_text
 
-class CrossrefAdapter:
-    async def lookup_doi(self, doi: str) -> Dict[str, Any]:
-        print(f"  [Tools] Querying Crossref for DOI: {doi}")
-        try:
-            result = await fetch_crossref_metadata(doi)
-            if result.get("success"):
-                return result["data"]
-        except Exception as e:
-            print(f"  [Tools] Crossref error: {e}")
-        return {}
+_DEFAULT_CORS_ORIGINS = (
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+)
 
-class OpenAlexAdapter:
-    async def search_opposing(self, query: str) -> List[CounterPaper]:
-        print(f"  [Tools] Querying OpenAlex for: {query}")
-        try:
-            result = await search_openalex(query)
-            if result.get("success"):
-                papers = []
-                for p in result["data"]:
-                    papers.append(CounterPaper(
-                        paper_id=p["id"],
-                        title=p["title"],
-                        year=p["year"],
-                        venue=p["venue"],
-                        url=p["url"]
-                    ))
-                return papers
-        except Exception as e:
-            print(f"  [Tools] OpenAlex error: {e}")
-        return []
 
-async def main():
-    print("=== Evidentia NemoClaw Brain ===")
-    
-    # 1. Initialize router
-    model_name = "nvidia/nemotron-3-super-120b-a12b"
-    router = ModelRouter(
-        super_model=model_name,
-        nano_model=model_name 
-    )
-    
-    # 2. Initialize context store
-    workspace = os.getenv("OPENCLAW_WORKSPACE", "/tmp/openclaw")
-    os.makedirs(workspace, exist_ok=True)
-    context = ContextStore(workspace_root=workspace)
-    
-    # 3. Initialize tools with adapters
-    tools = {
-        "crossref": CrossrefAdapter(),
-        "openalex": OpenAlexAdapter(),
-        "llm": LLMClient(),
-        "semantic_scholar": SemanticScholarStub(
-            contradiction_signals=["[Stub] citation graph looks consistent"],
-            opposing_papers=[]
-        )
-    }
-    
-    # 4. Create sample input
-    payload = InputPayload(
-        submission_id="test-run-1",
-        claims=[
-            Claim(claim_id="c1", text="Large language models exhibit emergent abilities that are not present in smaller models."),
-            Claim(claim_id="c2", text="The transformer architecture is the most efficient for all sequence modeling tasks.")
-        ],
-        citations=[
-            Citation(
-                citation_id="s1",
-                raw_text="Vaswani et al. (2017). Attention Is All You Need. Advances in Neural Information Processing Systems.",
-                title="Attention Is All You Need",
-                doi="10.48550/arXiv.1706.03762",
-                year=2017
-            ),
-            Citation(
-                citation_id="s2",
-                raw_text="Wei et al. (2022). Emergent Abilities of Large Language Models. Transactions on Machine Learning Research.",
-                title="Emergent Abilities of Large Language Models",
-                doi="10.48550/arXiv.2206.07682",
-                year=2022
-            )
-        ]
-    )
-    
-    # 5. Run orchestrator
-    print(f"Running pipeline for submission: {payload.submission_id}...")
-    orch = Orchestrator(router, tools, context, blocked_action_cb=blocked_action_stub)
-    
+def _cors_origins() -> List[str]:
+    origins = list(_DEFAULT_CORS_ORIGINS)
+    extra = os.getenv("CORS_ORIGINS", "")
+    if extra:
+        origins.extend(part.strip() for part in extra.split(",") if part.strip())
+    return origins
+
+
+app = FastAPI(title="Evidentia Backend API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+jobs: Dict[str, Dict[str, Any]] = {}
+
+
+def _set_progress(
+    job_id: str,
+    phase: str,
+    percent: int,
+    message: str,
+    agent: str = "orchestrator",
+) -> None:
+    """Update job progress (CONTRACT.md: phase, percent, message, agent)."""
+    _save_job(job_id, {"progress": progress_update(phase, percent, message, agent)})
+
+
+def _persist_ingest(
+    job_id: str,
+    full_text: str,
+    prepared_references: List[Dict[str, Any]],
+    source: SourceKind,
+    result: Dict[str, Any],
+) -> Dict[str, Any]:
+    ingest = build_submission_payload(job_id, full_text, prepared_references, source)
+    _save_job(job_id, {"ingest": ingest})
+    result["ingest"] = ingest
+    return ingest
+
+
+def _save_job(job_id: str, updates: Dict[str, Any]) -> None:
+    job = jobs.get(job_id)
+    if not job:
+        return
+    job.update(updates)
+
+
+def _prepare_all_references(reference_entries: List[str]) -> List[Dict[str, Any]]:
+    """Prepare every bibliography entry for agents (raw text + optional DOI/year)."""
+    return [prepare_reference_for_model(entry) for entry in reference_entries]
+
+
+def _write_temp_pdf(file_bytes: bytes) -> str:
+    fd, path = tempfile.mkstemp(suffix=".pdf")
+    os.close(fd)
+    with open(path, "wb") as output_file:
+        output_file.write(file_bytes)
+    return path
+
+
+async def _ingest_references(
+    job_id: str,
+    raw_reference_entries: List[str],
+    analysis: Dict[str, Any],
+    email: Optional[str] = None,
+) -> None:
+    """Prepare all citations and enrich DOI-bearing references into analysis."""
+    reference_models = _prepare_all_references(raw_reference_entries)
+    analysis["reference_entries"] = reference_models
+
+    doi_enrichment_results = []
+    total_refs = len(reference_models)
+    for index, reference in enumerate(reference_models, start=1):
+        if reference.get("doi"):
+            enrichment = await enrich_doi(reference["doi"], email=email)
+            doi_enrichment_results.append({"reference": reference, "enrichment": enrichment})
+        pct = min(80, 10 + int(60 * index / max(1, total_refs)))
+        _set_progress(job_id, "ingest", pct, "Processing references…", "orchestrator")
+
+    analysis["doi_enrichments"] = doi_enrichment_results
+
+
+async def _process_analysis_job(
+    job_id: str,
+    doi: Optional[str] = None,
+    text: Optional[str] = None,
+    file_bytes: Optional[bytes] = None,
+    email: Optional[str] = None,
+) -> None:
     try:
-        output = await orch.run(payload)
-        
-        print("\n=== Pipeline Results ===")
-        print(f"Duration: {output.raw.get('duration_seconds')}s")
-        
-        print("\n[Source Checks]")
-        for check in output.source_checks:
-            print(f"- {check.citation_id}: {check.normalized_title} ({check.publication_year})")
-            print(f"  Outdated: {check.is_outdated}")
-            print(f"  Contradictions: {check.contradiction_signals}")
-
-        print("\n[Counter Research]")
-        for ca in output.counterarguments:
-            print(f"- Claim {ca.claim_id}: {ca.summary}")
-            print(f"  Opposing papers found: {len(ca.papers)}")
-
-        if output.grader:
-            print("\n[Grader Output]")
-            if output.grader.coverage:
-                print(f"Coverage Score: {output.grader.coverage.score}")
-                print(f"Explanation: {output.grader.coverage.explanation}")
-            
-            print(f"Source Quality Scores: {[f'{s.citation_id}: {s.score}' for s in output.grader.source_quality]}")
-
-        if output.errors:
-            print("\n[Errors]")
-            for err in output.errors:
-                print(f"- {err.agent}: {err.message}")
-
-        report_payload = _build_frontend_payload(payload, output)
-        print("\n[Frontend Payload Debug]")
-        print(json.dumps(report_payload, indent=2))
-
-    except Exception as e:
-        print(f"Pipeline crashed: {e}")
-        import traceback
-        traceback.print_exc()
-
-def _build_frontend_payload(payload: InputPayload, output: Any) -> Dict[str, Any]:
-    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    metadata = payload.metadata or {}
-    paper = {
-        "title": metadata.get("title") or "Untitled",
-        "authors": metadata.get("authors") or [],
-        "uploaded_at": now_iso,
-    }
-
-    source_checks = output.source_checks or []
-    scores = output.grader.source_quality if output.grader else []
-    scores_by_id = {score.citation_id: score.score for score in scores}
-    checks_by_id = {check.citation_id: check for check in source_checks}
-
-    citations = []
-    for citation in payload.citations:
-        check = checks_by_id.get(citation.citation_id)
-        year = citation.year or (check.publication_year if check else None)
-        citations.append(
+        _save_job(
+            job_id,
             {
-                "id": citation.citation_id,
-                "authors": _format_authors(citation.authors),
-                "title": citation.title or (check.normalized_title if check else None) or "Untitled",
-                "year": year,
-                "doi": citation.doi or (check.normalized_doi if check else None),
-                "journal": citation.journal,
-                "source_quality_score": scores_by_id.get(citation.citation_id),
-                "recency_flag": _recency_flag(check.is_outdated if check else None, year),
-                "superseded_notes": None,
-                "superseded_by": [],
-            }
+                "status": "running",
+                "progress": progress_update("ingest", 5, "Starting ingestion…", "orchestrator"),
+            },
         )
 
-    coverage = output.grader.coverage if output.grader else None
-    coverage_score = coverage.score if coverage else None
-    claims_backed = set(coverage.claims_backed if coverage else [])
-    claims_unbacked = set(coverage.claims_unbacked if coverage else [])
+        result: Dict[str, Any] = {
+            "input": {"doi": doi, "text_provided": bool(text), "file_provided": bool(file_bytes), "email": email},
+            "analysis": {},
+        }
 
-    counter_by_claim = {}
-    for item in output.counterarguments or []:
-        papers = []
-        for counter_paper in item.papers or []:
-            papers.append(
-                {
-                    "title": counter_paper.title,
-                    "authors": _format_authors(getattr(counter_paper, "authors", None)),
-                    "year": counter_paper.year,
-                    "doi": getattr(counter_paper, "doi", None),
-                    "url": counter_paper.url,
-                    "relevance": _format_relevance(counter_paper.relevance_score),
-                }
+        if file_bytes is not None:
+            pdf_path = _write_temp_pdf(file_bytes)
+            try:
+                parsed = parse_pdf(pdf_path)
+            finally:
+                os.unlink(pdf_path)
+
+            result["analysis"]["pdf"] = parsed
+            await _ingest_references(
+                job_id,
+                parsed.get("reference_entries", []),
+                result["analysis"],
+                email=email,
             )
-        counter_by_claim[item.claim_id] = [
-            {
-                "summary": item.summary,
-                "papers": papers,
-            }
-        ]
+            _persist_ingest(
+                job_id,
+                str(parsed.get("full_text", "")),
+                result["analysis"]["reference_entries"],
+                "pdf",
+                result,
+            )
 
-    claims = []
-    for claim in payload.claims:
-        claims.append(
-            {
-                "id": claim.claim_id,
-                "text": claim.text,
-                "section": "Claim",
-                "cited_source_ids": [],
-                "coverage_score": _claim_coverage(claim.claim_id, claims_backed, claims_unbacked, coverage_score),
-                "counterarguments": counter_by_claim.get(claim.claim_id, []),
-                "supporting_sources": [],
-            }
+        elif text is not None:
+            parsed = parse_text(text)
+            result["analysis"]["text"] = parsed
+            await _ingest_references(
+                job_id,
+                parsed.get("reference_entries", []),
+                result["analysis"],
+                email=email,
+            )
+            _persist_ingest(
+                job_id,
+                str(parsed.get("full_text", "")),
+                result["analysis"]["reference_entries"],
+                "text",
+                result,
+            )
+
+        elif doi is not None:
+            _set_progress(job_id, "ingest", 15, "Enriching DOI…", "orchestrator")
+            prepared = [prepare_reference_for_model(doi)]
+            result["analysis"]["reference_entries"] = prepared
+            result["analysis"]["doi_enrichment"] = await enrich_doi(doi, email=email)
+            _persist_ingest(job_id, "", prepared, "text", result)
+
+        else:
+            raise ValueError("No input provided for analysis.")
+
+        _set_progress(job_id, "done", 100, "Ingestion complete", "orchestrator")
+        ingest = jobs[job_id].get("ingest")
+        if not ingest:
+            raise RuntimeError("Internal error: ingest payload missing after successful run.")
+        analysis_result = build_ingestion_analysis_result(
+            job_id,
+            ingest,
+            result["analysis"],
+            created_at_iso=str(jobs[job_id]["created_at"]),
         )
+        analysis_result["markdown"] = build_report(analysis_result)["markdown"]
+        _save_job(job_id, {"status": "completed", "result": result, "analysis_result": analysis_result})
+    except Exception as exc:
+        _set_progress(job_id, "done", 100, str(exc), "orchestrator")
+        failed = build_failed_analysis_result(
+            job_id,
+            str(exc),
+            created_at_iso=str(jobs[job_id]["created_at"]),
+        )
+        failed["markdown"] = build_report(failed)["markdown"]
+        _save_job(job_id, {"status": "failed", "error": str(exc), "analysis_result": failed})
 
-    source_quality = _average_score([score.score for score in scores])
-    data_quality_score = None
-    overall_scores = {
-        "source_quality": source_quality,
-        "coverage": coverage_score,
-        "data_quality": data_quality_score,
-    }
 
+@app.post("/analyze")
+async def analyze(
+    background_tasks: BackgroundTasks,
+    doi: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    text: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+) -> Dict[str, Any]:
+    """Queue ingestion / analysis. Returns job id and initial ``pending`` status (CONTRACT.md)."""
+    if not any([doi, text, file]):
+        raise HTTPException(status_code=400, detail="Provide a DOI, text, or PDF file to analyze.")
+
+    file_bytes = None
+    if file is not None:
+        file_bytes = await file.read()
+        if not file_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded file was empty.")
+
+    job_id = str(uuid4())
+    jobs[job_id] = new_job_document()
+    background_tasks.add_task(_process_analysis_job, job_id, doi, text, file_bytes, email)
+
+    return {"job_id": job_id, "status": "pending"}
+
+
+@app.get("/status/{job_id}")
+async def job_status(job_id: str) -> Dict[str, Any]:
+    """Poll job state for the frontend (CONTRACT.md + SCHEMAS.md progress block)."""
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
     return {
-        "job_id": payload.submission_id,
-        "status": "completed",
-        "paper": paper,
-        "progress": {
-            "phase": "done",
-            "percent": 100,
-            "message": "Analysis complete",
-            "agent": "orchestrator",
-        },
-        "executive_summary": _build_summary(overall_scores),
-        "overall_scores": overall_scores,
-        "citations": citations,
-        "claims": claims,
-        "data_quality": {
-            "score": data_quality_score,
-            "summary": "Data quality scoring not available yet.",
-            "comparisons": [],
-        },
-        "final_verdict": _build_verdict(overall_scores),
-        "errors": [err.model_dump() for err in output.errors] if output.errors else [],
+        "job_id": job_id,
+        "status": job["status"],
+        "progress": coerce_progress(job),
+        "error": job["error"],
     }
 
 
-def _average_score(values: List[float]) -> float | None:
-    if not values:
-        return None
-    return sum(values) / len(values)
+@app.get("/report/{job_id}")
+async def job_report(job_id: str) -> Dict[str, Any]:
+    """Return SCHEMAS.md Final AnalysisResult when the job has finished (success or failure)."""
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    status = job["status"]
+    if status in ("pending", "running"):
+        return JSONResponse(
+            status_code=202,
+            content={
+                "job_id": job_id,
+                "status": status,
+                "progress": coerce_progress(job),
+                "error": job["error"],
+                "result": job["result"],
+            },
+        )
+    analysis_result = job.get("analysis_result")
+    if status == "failed":
+        if not analysis_result:
+            analysis_result = build_failed_analysis_result(
+                job_id,
+                job.get("error") or "Unknown error",
+                created_at_iso=str(job["created_at"]),
+            )
+            analysis_result["markdown"] = build_report(analysis_result)["markdown"]
+        return analysis_result
+    if not analysis_result:
+        raise HTTPException(
+            status_code=500,
+            detail="Completed job is missing analysis_result; this is a server bug.",
+        )
+    return analysis_result
 
 
-def _format_authors(authors: Any) -> str:
-    if not authors:
-        return ""
-    if isinstance(authors, list):
-        return ", ".join(str(item) for item in authors if item)
-    return str(authors)
-
-
-def _recency_flag(is_outdated: bool | None, year: int | None) -> str:
-    if is_outdated is True:
-        return "stale"
-    if year and (datetime.now(timezone.utc).year - year) <= 2:
-        return "recent"
-    return "ok"
-
-
-def _claim_coverage(
-    claim_id: str,
-    backed: set[str],
-    unbacked: set[str],
-    fallback: float | None,
-) -> float | None:
-    if claim_id in backed:
-        return 1.0
-    if claim_id in unbacked:
-        return 0.0
-    return fallback
-
-
-def _format_relevance(score: float | None) -> str:
-    if score is None:
-        return ""
-    return f"score: {score:.2f}"
-
-
-def _build_summary(scores: Dict[str, Any]) -> str:
-    parts = []
-    if scores.get("source_quality") is not None:
-        parts.append(f"Source quality: {round(scores['source_quality'] * 100)}%.")
-    if scores.get("coverage") is not None:
-        parts.append(f"Coverage: {round(scores['coverage'] * 100)}%.")
-    if scores.get("data_quality") is not None:
-        parts.append(f"Data quality: {round(scores['data_quality'] * 100)}%.")
-    return " ".join(parts) or "Executive summary not available yet."
-
-
-def _build_verdict(scores: Dict[str, Any]) -> Dict[str, Any]:
-    source_quality = scores.get("source_quality")
-    coverage = scores.get("coverage")
-    data_quality = scores.get("data_quality")
-
-    if source_quality is not None and source_quality < 0.4:
-        status = "Needs major evidence work"
-    elif coverage is not None and coverage < 0.4:
-        status = "Needs major evidence work"
-    elif source_quality is not None and source_quality < 0.6:
-        status = "Needs citation revision"
-    elif coverage is not None and coverage < 0.6:
-        status = "Needs citation revision"
-    else:
-        status = "Ready to submit"
-
-    rationale = []
-    if source_quality is not None:
-        rationale.append(f"Source quality score is {round(source_quality * 100)}%.")
-    if coverage is not None:
-        rationale.append(f"Coverage score is {round(coverage * 100)}%.")
-    if data_quality is not None:
-        rationale.append(f"Data quality score is {round(data_quality * 100)}%.")
-
-    next_steps = [
-        "Review unsupported claims and add stronger citations.",
-        "Refresh outdated sources with recent peer-reviewed work.",
-        "Expand evidence for key claims before submission.",
-    ]
-
-    return {
-        "status": status,
-        "summary": "Auto-generated verdict based on current scores.",
-        "rationale": rationale,
-        "next_steps": next_steps,
-    }
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+@app.post("/report/build")
+async def report_build(payload: Dict[str, Any]) -> Dict[str, str]:
+    """Render markdown from a Final AnalysisResult JSON body (SCHEMAS.md)."""
+    return build_report(payload)
