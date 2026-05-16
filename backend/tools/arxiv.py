@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from backend.tools.cache import cache, make_cache_key
 from backend.tools.http_client import http_client
 
 ARXIV_BASE_URL = "https://export.arxiv.org/api/query"
@@ -93,46 +94,58 @@ async def search_arxiv(
     if search_query is None:
         return {"success": False, "error": "invalid_request", "details": "At least one of query, author, or title must be provided."}
 
-    url = f"{ARXIV_BASE_URL}?search_query={search_query}&max_results={max_results}"
-    headers = {"User-Agent": "Evidentia/1.0"}
+    cache_key = make_cache_key(
+        "arxiv",
+        "search",
+        query or "",
+        author or "",
+        title or "",
+        str(max_results),
+    )
 
-    if client is None:
-        response = await http_client.get_with_retries(url, headers=headers)
-    else:
-        response = await client.get(url, headers=headers)
+    async def fetch() -> Dict[str, Any]:
+        url = f"{ARXIV_BASE_URL}?search_query={search_query}&max_results={max_results}"
+        headers = {"User-Agent": "Evidentia/1.0"}
 
-    if response.status_code == 429:
-        return {"success": False, "error": "rate_limit", "details": "arXiv rate limited after retries"}
+        if client is None:
+            response = await http_client.get_with_retries(url, headers=headers)
+        else:
+            response = await client.get(url, headers=headers)
 
-    try:
-        response.raise_for_status()
-        root = ET.fromstring(response.text)
-    except httpx.HTTPStatusError as exc:
-        return {"success": False, "error": "http_error", "details": str(exc)}
-    except ET.ParseError as exc:
-        return {"success": False, "error": "parse_error", "details": str(exc)}
+        if response.status_code == 429:
+            return {"success": False, "error": "rate_limit", "details": "arXiv rate limited after retries"}
 
-    entries = root.findall("atom:entry", XML_NAMESPACES)
-    papers = [_normalize_arxiv_entry(entry) for entry in entries if isinstance(entry, ET.Element)]
-
-    total_results = None
-    total_el = root.find("opensearch:totalResults", XML_NAMESPACES)
-    if total_el is not None and total_el.text:
         try:
-            total_results = int(total_el.text.strip())
-        except ValueError:
-            total_results = None
+            response.raise_for_status()
+            root = ET.fromstring(response.text)
+        except httpx.HTTPStatusError as exc:
+            return {"success": False, "error": "http_error", "details": str(exc)}
+        except ET.ParseError as exc:
+            return {"success": False, "error": "parse_error", "details": str(exc)}
 
-    return {
-        "success": True,
-        "query": {
-            "query": query,
-            "author": author,
-            "title": title,
-        },
-        "data": papers,
-        "total": total_results,
-    }
+        entries = root.findall("atom:entry", XML_NAMESPACES)
+        papers = [_normalize_arxiv_entry(entry) for entry in entries if isinstance(entry, ET.Element)]
+
+        total_results = None
+        total_el = root.find("opensearch:totalResults", XML_NAMESPACES)
+        if total_el is not None and total_el.text:
+            try:
+                total_results = int(total_el.text.strip())
+            except ValueError:
+                total_results = None
+
+        return {
+            "success": True,
+            "query": {
+                "query": query,
+                "author": author,
+                "title": title,
+            },
+            "data": papers,
+            "total": total_results,
+        }
+
+    return await cache.memoize(cache_key, fetch, ttl=3600)
 
 
 if __name__ == "__main__":

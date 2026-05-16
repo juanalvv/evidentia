@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
+from backend.tools.cache import cache, make_cache_key
 from backend.tools.http_client import http_client
 
 CROSSREF_BASE_URL = "https://api.crossref.org/works"
@@ -57,34 +58,39 @@ def _normalize_crossref_message(message: Dict[str, Any]) -> Dict[str, Any]:
 
 async def fetch_crossref_metadata(doi: str, client: Optional[httpx.AsyncClient] = None) -> Dict[str, Any]:
     """Fetch Crossref metadata for a DOI and normalize the response."""
-    encoded_doi = urllib.parse.quote(doi.strip())
-    url = f"{CROSSREF_BASE_URL}/{encoded_doi}"
-    headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+    cache_key = make_cache_key("crossref", "doi", doi.lower())
 
-    if client is None:
-        response = await http_client.get_with_retries(url, headers=headers)
-    else:
-        response = await client.get(url, headers=headers)
+    async def fetch() -> Dict[str, Any]:
+        encoded_doi = urllib.parse.quote(doi.strip())
+        url = f"{CROSSREF_BASE_URL}/{encoded_doi}"
+        headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
 
-    if response.status_code == 404:
-        return {"success": False, "error": "not_found", "doi": doi, "details": response.text}
-    if response.status_code == 429:
-        return {"success": False, "error": "rate_limited", "doi": doi, "details": response.text}
-    try:
-        response.raise_for_status()
-        payload = response.json()
-    except httpx.HTTPStatusError as exc:
-        return {"success": False, "error": "http_error", "doi": doi, "details": str(exc)}
-    except ValueError as exc:
-        return {"success": False, "error": "parse_error", "doi": doi, "details": str(exc)}
+        if client is None:
+            response = await http_client.get_with_retries(url, headers=headers)
+        else:
+            response = await client.get(url, headers=headers)
 
-    if not isinstance(payload, dict) or "message" not in payload:
-        return {"success": False, "error": "parse_error", "doi": doi, "details": "Unexpected response format"}
+        if response.status_code == 404:
+            return {"success": False, "error": "not_found", "doi": doi, "details": response.text}
+        if response.status_code == 429:
+            return {"success": False, "error": "rate_limited", "doi": doi, "details": response.text}
+        try:
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            return {"success": False, "error": "http_error", "doi": doi, "details": str(exc)}
+        except ValueError as exc:
+            return {"success": False, "error": "parse_error", "doi": doi, "details": str(exc)}
 
-    normalized = _normalize_crossref_message(payload["message"])
-    normalized["source"] = "crossref"
-    normalized["doi"] = normalized.get("doi") or doi
-    return {"success": True, "data": normalized}
+        if not isinstance(payload, dict) or "message" not in payload:
+            return {"success": False, "error": "parse_error", "doi": doi, "details": "Unexpected response format"}
+
+        normalized = _normalize_crossref_message(payload["message"])
+        normalized["source"] = "crossref"
+        normalized["doi"] = normalized.get("doi") or doi
+        return {"success": True, "data": normalized}
+
+    return await cache.memoize(cache_key, fetch, ttl=3600)
 
 
 if __name__ == "__main__":
