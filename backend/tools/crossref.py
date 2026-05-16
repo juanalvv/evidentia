@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 import httpx
 
 from backend.tools.cache import cache, make_cache_key
-from backend.tools.http_client import http_client
+from backend.tools.http_client import request_get
 
 CROSSREF_BASE_URL = "https://api.crossref.org/works"
 USER_AGENT = "Evidentia/1.0 (mailto:team@evidentia.example)"
@@ -65,10 +65,7 @@ async def fetch_crossref_metadata(doi: str, client: Optional[httpx.AsyncClient] 
         url = f"{CROSSREF_BASE_URL}/{encoded_doi}"
         headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
 
-        if client is None:
-            response = await http_client.get_with_retries(url, headers=headers)
-        else:
-            response = await client.get(url, headers=headers)
+        response = await request_get(url, headers=headers, client=client)
 
         if response.status_code == 404:
             return {"success": False, "error": "not_found", "doi": doi, "details": response.text}

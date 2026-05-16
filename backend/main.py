@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from backend.tools.enrichment import enrich_doi
 from backend.utils.citation_extractor import prepare_reference_for_model
+from backend.utils.ingest import SourceKind, build_submission_payload
 from backend.utils.pdf_parser import parse_pdf, parse_text
 
 _DEFAULT_CORS_ORIGINS = (
@@ -45,9 +46,23 @@ def _create_job() -> Dict[str, Any]:
         "status": "pending",
         "progress": 0,
         "created_at": datetime.utcnow().isoformat() + "Z",
+        "ingest": None,
         "result": None,
         "error": None,
     }
+
+
+def _persist_ingest(
+    job_id: str,
+    full_text: str,
+    prepared_references: List[Dict[str, Any]],
+    source: SourceKind,
+    result: Dict[str, Any],
+) -> Dict[str, Any]:
+    ingest = build_submission_payload(job_id, full_text, prepared_references, source)
+    _save_job(job_id, {"ingest": ingest})
+    result["ingest"] = ingest
+    return ingest
 
 
 def _save_job(job_id: str, updates: Dict[str, Any]) -> None:
@@ -120,6 +135,13 @@ async def _process_analysis_job(
                 result["analysis"],
                 email=email,
             )
+            _persist_ingest(
+                job_id,
+                str(parsed.get("full_text", "")),
+                result["analysis"]["reference_entries"],
+                "pdf",
+                result,
+            )
 
         elif text is not None:
             parsed = parse_text(text)
@@ -130,9 +152,19 @@ async def _process_analysis_job(
                 result["analysis"],
                 email=email,
             )
+            _persist_ingest(
+                job_id,
+                str(parsed.get("full_text", "")),
+                result["analysis"]["reference_entries"],
+                "text",
+                result,
+            )
 
         elif doi is not None:
+            prepared = [prepare_reference_for_model(doi)]
+            result["analysis"]["reference_entries"] = prepared
             result["analysis"]["doi_enrichment"] = await enrich_doi(doi, email=email)
+            _persist_ingest(job_id, "", prepared, "text", result)
 
         else:
             raise ValueError("No input provided for analysis.")

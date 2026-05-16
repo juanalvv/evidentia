@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 from backend.tools.cache import cache, make_cache_key
-from backend.tools.http_client import http_client
+from backend.tools.http_client import request_get
 
 OPENALEX_BASE_URL = "https://api.openalex.org"
 OPENALEX_WORKS_ENDPOINT = f"{OPENALEX_BASE_URL}/works"
@@ -72,10 +72,7 @@ async def search_openalex(
         encoded_query = urllib.parse.quote_plus(query.strip())
         url = f"{OPENALEX_WORKS_ENDPOINT}?search={encoded_query}&per_page={limit}"
 
-        if client is None:
-            response = await http_client.get_with_retries(url)
-        else:
-            response = await client.get(url)
+        response = await request_get(url, client=client)
 
         if response.status_code == 429:
             return {
@@ -122,10 +119,7 @@ async def fetch_openalex_by_doi(
         encoded_doi = urllib.parse.quote_plus(doi.strip())
         url = f"{OPENALEX_WORKS_ENDPOINT}?filter=doi:{encoded_doi}&per_page=1"
 
-        if client is None:
-            response = await http_client.get_with_retries(url)
-        else:
-            response = await client.get(url)
+        response = await request_get(url, client=client)
 
         if response.status_code == 429:
             return {

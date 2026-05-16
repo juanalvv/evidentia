@@ -38,6 +38,17 @@ class HTTPClient:
 http_client = HTTPClient()
 
 
+async def request_get(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    client: Optional[httpx.AsyncClient] = None,
+) -> httpx.Response:
+    """GET with retries when using the shared client; plain GET for injected test clients."""
+    if client is None:
+        return await http_client.get_with_retries(url, headers=headers)
+    return await client.get(url, headers=headers)
+
+
 if __name__ == "__main__":
     import argparse
     import json

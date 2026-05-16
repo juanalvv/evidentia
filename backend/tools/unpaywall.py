@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from backend.tools.cache import cache, make_cache_key
-from backend.tools.http_client import http_client
+from backend.tools.http_client import request_get
 
 UNPAYWALL_BASE_URL = "https://api.unpaywall.org/v2"
 UNPAYWALL_DEFAULT_EMAIL = os.getenv("UNPAYWALL_EMAIL", "team@evidentia.example")
@@ -75,10 +75,7 @@ async def fetch_unpaywall_by_doi(
         email_value = urllib.parse.quote((email or UNPAYWALL_DEFAULT_EMAIL).strip())
         url = f"{UNPAYWALL_BASE_URL}/{encoded_doi}?email={email_value}"
 
-        if client is None:
-            response = await http_client.get_with_retries(url)
-        else:
-            response = await client.get(url)
+        response = await request_get(url, client=client)
 
         if response.status_code == 404:
             return {"success": False, "error": "not_found", "doi": doi, "details": response.text}

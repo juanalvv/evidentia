@@ -37,6 +37,7 @@ class AsyncCache:
         ttl: Optional[float] = 3600,
         cache_errors: bool = False,
     ) -> Any:
+        """Cache successful tool results only (failures are re-fetched on the next call)."""
         cached = await self.get(key)
         if cached is not None:
             return cached

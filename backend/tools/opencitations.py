@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from backend.tools.cache import cache, make_cache_key
-from backend.tools.http_client import http_client
+from backend.tools.http_client import request_get
 
 OPENCITATIONS_BASE_URL = "https://api.opencitations.net/index/v1"
 
@@ -42,10 +42,7 @@ async def _fetch_relation(
     async def fetch() -> Dict[str, Any]:
         url = _build_url(doi, relation)
 
-        if client is None:
-            response = await http_client.get_with_retries(url)
-        else:
-            response = await client.get(url)
+        response = await request_get(url, client=client)
 
         if response.status_code == 404:
             return {"success": False, "error": "not_found", "doi": doi, "relation": relation, "details": response.text}

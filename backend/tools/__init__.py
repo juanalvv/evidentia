@@ -5,9 +5,10 @@ teammate B's data ingestion and research layer.
 """
 
 from backend.tools.arxiv import search_arxiv
+from backend.tools import errors as tool_errors
 from backend.tools.crossref import fetch_crossref_metadata
 from backend.tools.enrichment import enrich_doi, fetch_doi_metadata
-from backend.tools.http_client import http_client
+from backend.tools.http_client import http_client, request_get
 from backend.tools.openalex import fetch_openalex_by_doi, search_openalex
 from backend.tools.opencitations import (
     fetch_opencitations_by_doi,
@@ -17,6 +18,7 @@ from backend.tools.opencitations import (
 from backend.tools.unpaywall import fetch_unpaywall_by_doi
 
 __all__ = [
+    "tool_errors",
     "fetch_crossref_metadata",
     "fetch_openalex_by_doi",
     "search_openalex",
@@ -28,4 +30,5 @@ __all__ = [
     "enrich_doi",
     "fetch_doi_metadata",
     "http_client",
+    "request_get",
 ]

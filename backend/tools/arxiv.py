@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from backend.tools.cache import cache, make_cache_key
-from backend.tools.http_client import http_client
+from backend.tools.http_client import request_get
 
 ARXIV_BASE_URL = "https://export.arxiv.org/api/query"
 XML_NAMESPACES = {
@@ -107,13 +107,10 @@ async def search_arxiv(
         url = f"{ARXIV_BASE_URL}?search_query={search_query}&max_results={max_results}"
         headers = {"User-Agent": "Evidentia/1.0"}
 
-        if client is None:
-            response = await http_client.get_with_retries(url, headers=headers)
-        else:
-            response = await client.get(url, headers=headers)
+        response = await request_get(url, headers=headers, client=client)
 
         if response.status_code == 429:
-            return {"success": False, "error": "rate_limit", "details": "arXiv rate limited after retries"}
+            return {"success": False, "error": "rate_limited", "details": "arXiv rate limited after retries"}
 
         try:
             response.raise_for_status()
