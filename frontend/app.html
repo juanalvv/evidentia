@@ -17,10 +17,11 @@
       </a>
       <div class="nav-links">
         <a href="index.html" data-nav="home">Home</a>
+        <a href="reports.html">Reports</a>
       </div>
       <div class="nav-actions">
         <a href="login.html" class="btn btn-ghost">Log in</a>
-        <a href="index.html" class="btn btn-ghost">← Home</a>
+        <a href="index.html" class="btn btn-ghost" aria-label="Back to home">←</a>
       </div>
     </div>
   </nav>
@@ -62,16 +63,19 @@
       </form>
     </section>
 
-    <section id="papers-library" class="papers-library" aria-label="My Papers">
+    <section id="papers-library" class="papers-library" aria-label="Reports">
       <div class="library-heading">
         <div>
           <span class="library-kicker">Saved analyses</span>
-          <h2>My Papers</h2>
+          <h2>Reports</h2>
         </div>
-        <span id="papers-count" class="papers-count">0 papers</span>
+        <span id="papers-count" class="papers-count">0 reports</span>
       </div>
       <div id="papers-list" class="papers-list"></div>
       <p id="papers-empty" class="papers-empty">Your analyzed papers will appear here after you run a demo or upload a draft.</p>
+      <div id="papers-view-all" class="library-footer hidden">
+        <a href="reports.html" class="view-all-link">View All →</a>
+      </div>
     </section>
 
     <main id="analysis-workspace" class="layout hidden">

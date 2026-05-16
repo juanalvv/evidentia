@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reports — Evidentia</title>
+  <link rel="stylesheet" href="css/site.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="site app-body papers-page" data-page="reports">
+  <nav class="nav-float-wrap" aria-label="Main">
+    <div class="nav-float">
+      <a href="index.html" class="nav-brand">
+        <span class="nav-dot" aria-hidden="true"></span>
+        Evidentia
+      </a>
+      <div class="nav-links">
+        <a href="index.html" data-nav="home">Home</a>
+        <a href="reports.html" aria-current="page">Reports</a>
+      </div>
+      <div class="nav-actions">
+        <a href="login.html" class="btn btn-ghost">Log in</a>
+        <a href="app.html" class="btn btn-primary">Analyze</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="papers-page-main">
+    <section class="papers-hero">
+      <span class="library-kicker">Saved analyses</span>
+      <div class="papers-hero-row">
+        <div>
+          <h1>Reports</h1>
+          <p>Review every paper you have stress-tested with Evidentia. Open any saved analysis to revisit its report, details, and PDF export.</p>
+        </div>
+        <a href="app.html" class="btn btn-primary">Analyze new paper</a>
+      </div>
+    </section>
+
+    <section class="papers-library papers-library-page" aria-label="Reports">
+      <div class="library-heading">
+        <div>
+          <span class="library-kicker">Library</span>
+          <h2>Saved reports</h2>
+        </div>
+        <span id="papers-count" class="papers-count">0 reports</span>
+      </div>
+      <div id="papers-list" class="papers-list"></div>
+      <p id="papers-empty" class="papers-empty">Your analyzed papers will appear here after you run a demo or upload a draft.</p>
+      <div id="reports-pagination" class="reports-pagination hidden" aria-label="Reports pagination">
+        <button type="button" id="reports-prev" class="pagination-arrow" aria-label="Previous reports page">←</button>
+        <span id="reports-page-label" class="pagination-label">Page 1 of 1</span>
+        <button type="button" id="reports-next" class="pagination-arrow" aria-label="Next reports page">→</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="papers.js"></script>
+</body>
+</html>

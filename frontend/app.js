@@ -798,13 +798,15 @@ function renderPapersLibrary() {
   const list = $("#papers-list");
   const empty = $("#papers-empty");
   const count = $("#papers-count");
+  const viewAll = $("#papers-view-all");
   if (!list || !empty || !count) return;
 
-  count.textContent = `${papers.length} ${papers.length === 1 ? "paper" : "papers"}`;
+  count.textContent = `${papers.length} ${papers.length === 1 ? "report" : "reports"}`;
   empty.classList.toggle("hidden", papers.length > 0);
+  viewAll?.classList.toggle("hidden", papers.length <= 9);
   list.innerHTML = "";
 
-  for (const paper of papers) {
+  for (const paper of papers.slice(0, 9)) {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "paper-card";
@@ -1039,6 +1041,11 @@ function initAnalyzer() {
   }
 
   renderPapersLibrary();
+
+  const paperId = new URLSearchParams(window.location.search).get("paper");
+  if (paperId) {
+    openSavedPaper(paperId);
+  }
 }
 
 initAnalyzer();
