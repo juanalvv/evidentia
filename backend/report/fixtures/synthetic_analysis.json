@@ -1,0 +1,177 @@
+{
+  "job_id": "synthetic-001",
+  "status": "completed",
+  "paper": {
+    "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+    "authors": ["Lewis et al."],
+    "uploaded_at": "2026-05-16T20:45:00Z"
+  },
+  "progress": {
+    "phase": "done",
+    "percent": 100,
+    "message": "Analysis complete",
+    "agent": "orchestrator"
+  },
+  "executive_summary": "The paper is well grounded in neural retrieval and sequence-to-sequence literature, but several claims about factuality and knowledge freshness need narrower wording. Evidentia found strong support for the core retrieval-augmented architecture, moderate support for downstream generalization claims, and a methods gap around evaluation of hallucination reduction.",
+  "overall_scores": {
+    "source_quality": 0.82,
+    "coverage": 0.68,
+    "data_quality": 0.57
+  },
+  "citations": [
+    {
+      "id": "cite-1",
+      "authors": "Karpukhin et al.",
+      "title": "Dense Passage Retrieval for Open-Domain Question Answering",
+      "year": 2020,
+      "doi": "10.48550/arXiv.2004.04906",
+      "journal": "EMNLP",
+      "source_quality_score": 0.9,
+      "recency_flag": "ok",
+      "superseded_notes": null,
+      "superseded_by": []
+    },
+    {
+      "id": "cite-2",
+      "authors": "Guu et al.",
+      "title": "REALM: Retrieval-Augmented Language Model Pre-Training",
+      "year": 2020,
+      "doi": "10.48550/arXiv.2002.08909",
+      "journal": "ICML",
+      "source_quality_score": 0.86,
+      "recency_flag": "ok",
+      "superseded_notes": "Still foundational, but later retrieval-augmented and tool-using systems provide stronger evidence for current production settings.",
+      "superseded_by": [
+        {
+          "title": "Atlas: Few-shot Learning with Retrieval Augmented Language Models",
+          "year": 2022,
+          "doi": "10.48550/arXiv.2208.03299"
+        }
+      ]
+    },
+    {
+      "id": "cite-3",
+      "authors": "Unverified Product Blog",
+      "title": "RAG Systems Eliminate Hallucinations in Enterprise Search",
+      "year": 2023,
+      "doi": null,
+      "journal": "blog",
+      "source_quality_score": 0.28,
+      "recency_flag": "recent",
+      "superseded_notes": "Non-peer-reviewed and overstates hallucination reduction; not appropriate as primary evidence.",
+      "superseded_by": []
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Retrieval augmentation improves factual accuracy on knowledge-intensive NLP tasks.",
+      "section": "Abstract",
+      "cited_source_ids": ["cite-1", "cite-2"],
+      "coverage_score": 0.78,
+      "counterarguments": [
+        {
+          "summary": "Later work shows retrieval can introduce irrelevant or conflicting evidence when retrievers are poorly calibrated.",
+          "papers": [
+            {
+              "title": "When Not to Trust Language Models: Investigating Effectiveness of Parametric and Non-Parametric Memories",
+              "authors": "Longpre et al.",
+              "year": 2021,
+              "doi": "10.48550/arXiv.2104.08750",
+              "url": "https://arxiv.org/abs/2104.08750",
+              "relevance": "Shows that retrieval quality and memory choice affect factual reliability."
+            }
+          ]
+        }
+      ],
+      "supporting_sources": [
+        {
+          "title": "Atlas: Few-shot Learning with Retrieval Augmented Language Models",
+          "authors": "Izacard et al.",
+          "year": 2022,
+          "doi": "10.48550/arXiv.2208.03299",
+          "note": "Supports retrieval benefits in few-shot settings."
+        }
+      ]
+    },
+    {
+      "id": "claim-2",
+      "text": "The proposed system eliminates hallucinations by grounding every answer in retrieved passages.",
+      "section": "Discussion",
+      "cited_source_ids": ["cite-3"],
+      "coverage_score": 0.24,
+      "counterarguments": [
+        {
+          "summary": "RAG can reduce unsupported generations, but hallucinations persist when retrieval is incomplete, stale, or contradicts the generation objective.",
+          "papers": [
+            {
+              "title": "Retrieval-Augmented Generation for Large Language Models: A Survey",
+              "authors": "Gao et al.",
+              "year": 2023,
+              "doi": "10.48550/arXiv.2312.10997",
+              "url": "https://arxiv.org/abs/2312.10997",
+              "relevance": "Surveys remaining failure modes in RAG pipelines."
+            }
+          ]
+        }
+      ],
+      "supporting_sources": []
+    },
+    {
+      "id": "claim-3",
+      "text": "Updating the retrieval index is cheaper than retraining the full parametric model.",
+      "section": "Method",
+      "cited_source_ids": ["cite-2"],
+      "coverage_score": 0.72,
+      "counterarguments": [],
+      "supporting_sources": [
+        {
+          "title": "REALM: Retrieval-Augmented Language Model Pre-Training",
+          "authors": "Guu et al.",
+          "year": 2020,
+          "doi": "10.48550/arXiv.2002.08909",
+          "note": "Supports the separation between retrieved memory and parametric model updates."
+        }
+      ]
+    }
+  ],
+  "data_quality": {
+    "score": 0.57,
+    "summary": "The evaluation reports downstream task gains but does not isolate retrieval errors from generation errors. Hallucination reduction is discussed qualitatively without confidence intervals or adversarial retrieval tests.",
+    "comparisons": [
+      {
+        "aspect": "Hallucination evaluation",
+        "paper_value": "Qualitative examples only",
+        "field_norm": "Human evaluation plus factuality metrics",
+        "verdict": "below_norm"
+      },
+      {
+        "aspect": "Retriever ablation",
+        "paper_value": "Retriever compared against closed-book baseline",
+        "field_norm": "Multiple retriever variants and retrieval-noise tests",
+        "verdict": "below_norm"
+      },
+      {
+        "aspect": "Benchmark coverage",
+        "paper_value": "Open-domain QA and knowledge-intensive tasks",
+        "field_norm": "Standard datasets for retrieval-augmented NLP",
+        "verdict": "ok"
+      }
+    ]
+  },
+  "final_verdict": {
+    "status": "Needs to improve methods & data processes",
+    "summary": "The sourcing is strong enough to support the architecture, but the methods section needs stronger evaluation before the factuality claims are submission-ready.",
+    "rationale": [
+      "Source quality is strong overall, but one hallucination claim relies on a non-peer-reviewed source.",
+      "Coverage is uneven: the architecture claim is supported, while the hallucination-elimination claim is not.",
+      "Data quality is limited by missing factuality metrics, confidence intervals, and retrieval-noise ablations."
+    ],
+    "next_steps": [
+      "Replace the product blog with peer-reviewed RAG evaluation literature.",
+      "Narrow the hallucination claim from elimination to reduction under tested retrieval conditions.",
+      "Add retrieval ablations, factuality metrics, and error analysis separating retriever and generator failures."
+    ]
+  },
+  "errors": []
+}

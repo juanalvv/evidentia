@@ -1,5 +1,5 @@
 const API = window.EVIDENTIA_API || "";
-const MOCK_FIXTURE = "../backend/report/fixtures/mock_analysis.json";
+const MOCK_FIXTURE = "../backend/report/fixtures/synthetic_analysis.json";
 const SAVED_PAPERS_KEY = "evidentia.savedPapers.v1";
 
 const AGENT_STEPS = [
@@ -890,7 +890,7 @@ async function displayAnalysisResult(payload, options = {}) {
   if (options.save) savePaperAnalysis(payload, options.meta);
 }
 
-const MOCK_MARKDOWN = "../backend/report/fixtures/mock_report.md";
+const MOCK_MARKDOWN = "../backend/report/fixtures/synthetic_report.md";
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
