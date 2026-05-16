@@ -1,7 +1,5 @@
-import asyncio
 import os
 import tempfile
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -9,7 +7,10 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from backend.job_models import coerce_progress, new_job_document, progress_update
+from backend.report.builder import build_report
 from backend.tools.enrichment import enrich_doi
+from backend.utils.analysis_stub import build_failed_analysis_result, build_ingestion_analysis_result
 from backend.utils.citation_extractor import prepare_reference_for_model
 from backend.utils.ingest import SourceKind, build_submission_payload
 from backend.utils.pdf_parser import parse_pdf, parse_text
@@ -41,15 +42,15 @@ app.add_middleware(
 jobs: Dict[str, Dict[str, Any]] = {}
 
 
-def _create_job() -> Dict[str, Any]:
-    return {
-        "status": "pending",
-        "progress": 0,
-        "created_at": datetime.utcnow().isoformat() + "Z",
-        "ingest": None,
-        "result": None,
-        "error": None,
-    }
+def _set_progress(
+    job_id: str,
+    phase: str,
+    percent: int,
+    message: str,
+    agent: str = "orchestrator",
+) -> None:
+    """Update job progress (CONTRACT.md: phase, percent, message, agent)."""
+    _save_job(job_id, {"progress": progress_update(phase, percent, message, agent)})
 
 
 def _persist_ingest(
@@ -101,7 +102,8 @@ async def _ingest_references(
         if reference.get("doi"):
             enrichment = await enrich_doi(reference["doi"], email=email)
             doi_enrichment_results.append({"reference": reference, "enrichment": enrichment})
-        _save_job(job_id, {"progress": min(80, 10 + int(60 * index / max(1, total_refs)))})
+        pct = min(80, 10 + int(60 * index / max(1, total_refs)))
+        _set_progress(job_id, "ingest", pct, "Processing references…", "orchestrator")
 
     analysis["doi_enrichments"] = doi_enrichment_results
 
@@ -114,7 +116,13 @@ async def _process_analysis_job(
     email: Optional[str] = None,
 ) -> None:
     try:
-        _save_job(job_id, {"status": "running", "progress": 5})
+        _save_job(
+            job_id,
+            {
+                "status": "running",
+                "progress": progress_update("ingest", 5, "Starting ingestion…", "orchestrator"),
+            },
+        )
 
         result: Dict[str, Any] = {
             "input": {"doi": doi, "text_provided": bool(text), "file_provided": bool(file_bytes), "email": email},
@@ -161,6 +169,7 @@ async def _process_analysis_job(
             )
 
         elif doi is not None:
+            _set_progress(job_id, "ingest", 15, "Enriching DOI…", "orchestrator")
             prepared = [prepare_reference_for_model(doi)]
             result["analysis"]["reference_entries"] = prepared
             result["analysis"]["doi_enrichment"] = await enrich_doi(doi, email=email)
@@ -169,9 +178,27 @@ async def _process_analysis_job(
         else:
             raise ValueError("No input provided for analysis.")
 
-        _save_job(job_id, {"status": "finished", "progress": 100, "result": result})
+        _set_progress(job_id, "done", 100, "Ingestion complete", "orchestrator")
+        ingest = jobs[job_id].get("ingest")
+        if not ingest:
+            raise RuntimeError("Internal error: ingest payload missing after successful run.")
+        analysis_result = build_ingestion_analysis_result(
+            job_id,
+            ingest,
+            result["analysis"],
+            created_at_iso=str(jobs[job_id]["created_at"]),
+        )
+        analysis_result["markdown"] = build_report(analysis_result)["markdown"]
+        _save_job(job_id, {"status": "completed", "result": result, "analysis_result": analysis_result})
     except Exception as exc:
-        _save_job(job_id, {"status": "failed", "progress": 100, "error": str(exc)})
+        _set_progress(job_id, "done", 100, str(exc), "orchestrator")
+        failed = build_failed_analysis_result(
+            job_id,
+            str(exc),
+            created_at_iso=str(jobs[job_id]["created_at"]),
+        )
+        failed["markdown"] = build_report(failed)["markdown"]
+        _save_job(job_id, {"status": "failed", "error": str(exc), "analysis_result": failed})
 
 
 @app.post("/analyze")
@@ -192,7 +219,7 @@ async def analyze(
             raise HTTPException(status_code=400, detail="Uploaded file was empty.")
 
     job_id = str(uuid4())
-    jobs[job_id] = _create_job()
+    jobs[job_id] = new_job_document()
     background_tasks.add_task(_process_analysis_job, job_id, doi, text, file_bytes, email)
 
     return {"job_id": job_id, "status": jobs[job_id]["status"]}
@@ -200,31 +227,49 @@ async def analyze(
 
 @app.get("/status/{job_id}")
 async def job_status(job_id: str) -> Dict[str, Any]:
+    """Poll job state for the frontend (CONTRACT.md + SCHEMAS.md progress block)."""
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     return {
         "job_id": job_id,
         "status": job["status"],
-        "progress": job["progress"],
+        "progress": coerce_progress(job),
         "error": job["error"],
     }
 
 
 @app.get("/report/{job_id}")
 async def job_report(job_id: str) -> Dict[str, Any]:
+    """Return SCHEMAS.md Final AnalysisResult when the job has finished (success or failure)."""
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
-    if job["status"] != "finished":
+    status = job["status"]
+    if status in ("pending", "running"):
         return JSONResponse(
             status_code=202,
             content={
                 "job_id": job_id,
-                "status": job["status"],
-                "progress": job["progress"],
+                "status": status,
+                "progress": coerce_progress(job),
                 "error": job["error"],
                 "result": job["result"],
             },
         )
-    return {"job_id": job_id, "status": job["status"], "progress": job["progress"], "result": job["result"]}
+    analysis_result = job.get("analysis_result")
+    if status == "failed":
+        if not analysis_result:
+            analysis_result = build_failed_analysis_result(
+                job_id,
+                job.get("error") or "Unknown error",
+                created_at_iso=str(job["created_at"]),
+            )
+            analysis_result["markdown"] = build_report(analysis_result)["markdown"]
+        return analysis_result
+    if not analysis_result:
+        raise HTTPException(
+            status_code=500,
+            detail="Completed job is missing analysis_result; this is a server bug.",
+        )
+    return analysis_result
