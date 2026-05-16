@@ -136,5 +136,19 @@
       }
     ]
   },
+  "final_verdict": {
+    "status": "Needs major evidence work",
+    "summary": "The paper has a strong foundational direction, but it is not submission-ready until weak evidence, broad claims, and methods reporting gaps are addressed.",
+    "rationale": [
+      "Coverage is 52%, with two central claims lacking direct empirical support.",
+      "One cited source is non-peer-reviewed and unsuitable as primary evidence.",
+      "Reported BLEU gains lack confidence intervals and stronger ablation evidence."
+    ],
+    "next_steps": [
+      "Replace the blog citation with peer-reviewed evidence or remove the dependent claim.",
+      "Add direct citations for the WMT performance claim and narrow unsupported wording.",
+      "Report confidence intervals, multiple seeds, and ablation studies for the core method."
+    ]
+  },
   "errors": []
 }

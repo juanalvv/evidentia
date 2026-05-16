@@ -119,7 +119,10 @@ function renderCitationGrades(citations) {
     return;
   }
   root.classList.remove("hidden");
-  root.innerHTML = "<h3>Per-citation grades</h3>";
+  root.innerHTML = `
+    <h3>Per-citation grades</h3>
+    <p class="section-description">We reviewed each cited source for recency, reliability, and supersession risk. Use these scores to spot which references are strong enough to keep and which ones may need replacement or newer supporting literature.</p>
+  `;
   const list = document.createElement("div");
   list.className = "citation-list";
   for (const c of citations) {
@@ -153,7 +156,10 @@ function renderClaimsSection(claims) {
     return;
   }
   root.classList.remove("hidden");
-  root.innerHTML = "<h3>Claims, coverage & counterarguments</h3>";
+  root.innerHTML = `
+    <h3>Claims, coverage & counterarguments</h3>
+    <p class="section-description">Each claim is scored by how well it is supported by the paper’s citations. Lower coverage means the claim may need stronger evidence, clearer sourcing, or a narrower wording.</p>
+  `;
   const list = document.createElement("div");
   list.className = "claim-list";
   for (const claim of claims) {
@@ -201,7 +207,6 @@ function showClaimDetail(claimId) {
   const color = scoreColor(score);
   const cited = claim.cited_source_ids || [];
   const counterarguments = claim.counterarguments || [];
-  const supporting = claim.supporting_sources || [];
 
   detail.innerHTML = `
     <button type="button" id="btn-back-report-claim" class="back-library-btn citation-back">← Back to report</button>
@@ -216,29 +221,6 @@ function showClaimDetail(claimId) {
         <span>coverage</span>
       </div>
     </div>
-
-    <section class="citation-analysis-card">
-      <h3>Cited sources</h3>
-      ${
-        cited.length
-          ? `<ul class="superseded-list">${cited
-              .map((id) => {
-                const citation = citationById(id);
-                const link = doiUrl(citation?.doi);
-                const content = `
-                  <strong>${escapeHtml(citationTitleById(id))}</strong>
-                  <span>${escapeHtml(citation?.authors || "Unknown authors")}${citation?.year ? ` · ${citation.year}` : ""}${citation?.doi ? ` · ${escapeHtml(citation.doi)}` : ""}</span>
-                `;
-                return `<li>${
-                  link
-                    ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${content}<span class="superseded-open">Open paper ↗</span></a>`
-                    : content
-                }</li>`;
-              })
-              .join("")}</ul>`
-          : "<p>No cited sources were detected for this claim.</p>"
-      }
-    </section>
 
     <section class="citation-analysis-card">
       <h3>Counterarguments</h3>
@@ -278,27 +260,28 @@ function showClaimDetail(claimId) {
     </section>
 
     <section class="citation-analysis-card">
-      <h3>Additional supporting literature</h3>
+      <h3>Cited sources</h3>
       ${
-        supporting.length
-          ? `<ul class="superseded-list">${supporting
-              .map((source) => {
-                const link = externalPaperLink(source);
+        cited.length
+          ? `<ul class="superseded-list">${cited
+              .map((id) => {
+                const citation = citationById(id);
+                const link = doiUrl(citation?.doi);
                 const content = `
-                  <strong>${escapeHtml(source.title || "Untitled source")}</strong>
-                  <span>${escapeHtml(source.authors || "Unknown authors")} · ${source.year ?? "?"}</span>
-                  ${source.note ? `<span>${escapeHtml(source.note)}</span>` : ""}
+                  <strong>${escapeHtml(citationTitleById(id))}</strong>
+                  <span>${escapeHtml(citation?.authors || "Unknown authors")}${citation?.year ? ` · ${citation.year}` : ""}${citation?.doi ? ` · ${escapeHtml(citation.doi)}` : ""}</span>
                 `;
                 return `<li>${
                   link
-                    ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${content}<span class="superseded-open">Open source ↗</span></a>`
+                    ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${content}<span class="superseded-open">Open paper ↗</span></a>`
                     : content
                 }</li>`;
               })
               .join("")}</ul>`
-          : "<p>No additional supporting sources were detected for this claim.</p>"
+          : "<p>No cited sources were detected for this claim.</p>"
       }
     </section>
+
   `;
 
   $("#analysis-workspace")?.classList.add("claim-ready");
@@ -428,6 +411,9 @@ function stripExecutiveSummary(markdown) {
     .replace(/## Overall grades\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
     .replace(/## Source quality by citation\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
     .replace(/## Claims, coverage & counterarguments\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .replace(/## Data & methods comparison\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .replace(/## Final Verdict\s+[\s\S]*?(?=\n## |\n---|$)/i, "")
+    .replace(/---\s*\n\*Generated by Evidentia[\s\S]*$/i, "")
     .trim();
 }
 
@@ -462,14 +448,173 @@ function renderKeyFindings(summary) {
   `;
 }
 
+function verdictLabel(verdict) {
+  return {
+    below_norm: "Below norm",
+    ok: "Acceptable",
+    strong: "Strong",
+  }[verdict] || verdict || "Unknown";
+}
+
+function renderDataMethodsSection(dataQuality) {
+  const root = $("#data-methods-section");
+  if (!root) return;
+  if (!dataQuality) {
+    root.classList.add("hidden");
+    root.innerHTML = "";
+    return;
+  }
+  const score = dataQuality.score;
+  const pct = score != null ? Math.round(score * 100) : "—";
+  const color = scoreColor(score);
+  const comparisons = dataQuality.comparisons || [];
+  root.classList.remove("hidden");
+  root.innerHTML = `
+    <div class="data-methods-header">
+      <div>
+        <h3>Data & methods comparison</h3>
+        <p>${escapeHtml(dataQuality.summary || "Evidentia compared the paper's data and methods against expected field norms.")}</p>
+      </div>
+      <div class="data-methods-score">
+        <div class="score-ring ${color}" style="--score:${score != null ? Math.round(score * 100) : 0}">
+          <strong>${pct}%</strong>
+        </div>
+        <span>data quality</span>
+      </div>
+    </div>
+    <div class="methods-comparison-list">
+      ${comparisons
+        .map(
+          (row) => `
+            <article class="method-comparison-card ${scoreColor(row.verdict === "below_norm" ? 0.2 : 0.75)}">
+              <div class="method-comparison-top">
+                <h4>${escapeHtml(row.aspect || "Method aspect")}</h4>
+                <span>${escapeHtml(verdictLabel(row.verdict))}</span>
+              </div>
+              <div class="method-comparison-grid">
+                <div>
+                  <span>In draft</span>
+                  <strong>${escapeHtml(row.paper_value || "Not detected")}</strong>
+                </div>
+                <div>
+                  <span>Field norm</span>
+                  <strong>${escapeHtml(row.field_norm || "Unknown")}</strong>
+                </div>
+              </div>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function normalizeFinalVerdict(payload) {
+  const explicit = payload?.final_verdict;
+  if (typeof explicit === "string") return { status: explicit };
+  if (explicit?.status) return explicit;
+
+  const scores = payload?.overall_scores || {};
+  const sourceQuality = scores.source_quality;
+  const coverage = scores.coverage;
+  const dataQuality = scores.data_quality ?? payload?.data_quality?.score;
+  const weakCitation = payload?.citations?.some((citation) => (citation.source_quality_score ?? 1) < 0.45);
+  const staleCitation = payload?.citations?.some((citation) => citation.recency_flag === "stale");
+
+  if ((coverage ?? 1) < 0.45) {
+    return {
+      status: "Needs major evidence work",
+      summary: "Core claims need stronger evidence before this paper is ready for submission.",
+    };
+  }
+  if ((dataQuality ?? 1) < 0.65) {
+    return {
+      status: "Needs to improve methods & data processes",
+      summary: "The argument is visible, but methods and data reporting need more rigor.",
+    };
+  }
+  if ((sourceQuality ?? 1) < 0.7 || weakCitation || staleCitation) {
+    return {
+      status: "Needs citation revision",
+      summary: "The paper is close, but some references should be replaced or updated.",
+    };
+  }
+  return {
+    status: "Ready to submit",
+    summary: "The evidence base, claim coverage, and methods signals are strong enough for review.",
+  };
+}
+
+function verdictTone(status) {
+  return {
+    "Ready to submit": "good",
+    "Needs citation revision": "warn",
+    "Needs major evidence work": "bad",
+    "Needs to improve methods & data processes": "warn",
+  }[status] || "neutral";
+}
+
+function renderFinalVerdict(payload) {
+  const root = $("#final-verdict");
+  if (!root) return;
+
+  const verdict = normalizeFinalVerdict(payload);
+  const status = verdict.status || "Needs major evidence work";
+  const tone = verdictTone(status);
+  const scores = payload?.overall_scores || {};
+  const rationale =
+    verdict.rationale?.length
+      ? verdict.rationale
+      : [
+          `Source quality is ${fmtPct(scores.source_quality)}.`,
+          `Claim coverage is ${fmtPct(scores.coverage)}.`,
+          `Data quality is ${fmtPct(scores.data_quality ?? payload?.data_quality?.score)}.`,
+        ];
+  const nextSteps =
+    verdict.next_steps?.length
+      ? verdict.next_steps
+      : [
+          "Update weak or stale citations with stronger recent literature.",
+          "Tighten broad claims so each one maps to direct evidence.",
+          "Add clearer methods details before submission.",
+        ];
+
+  root.classList.remove("hidden");
+  root.className = `final-verdict ${tone}`;
+  root.innerHTML = `
+    <div class="final-verdict-main">
+      <span class="final-verdict-kicker">Final Verdict</span>
+      <h3>${escapeHtml(status)}</h3>
+      <p>${escapeHtml(verdict.summary || "Evidentia combined source quality, claim coverage, and data quality to produce this recommendation.")}</p>
+    </div>
+    <div class="final-verdict-panel">
+      <span>Why this verdict</span>
+      <ul>
+        ${rationale.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </div>
+    <div class="final-verdict-panel">
+      <span>Next best action</span>
+      <ul>
+        ${nextSteps.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </div>
+  `;
+}
+
 function resetReportView() {
   $("#scores-panel")?.classList.add("hidden");
   $("#citation-grades")?.classList.add("hidden");
   $("#claims-section")?.classList.add("hidden");
+  $("#data-methods-section")?.classList.add("hidden");
+  $("#final-verdict")?.classList.add("hidden");
+  $("#report-footer-note")?.classList.add("hidden");
   $("#key-findings")?.classList.add("hidden");
   $("#report-title-card")?.classList.add("hidden");
   $("#citation-grades").innerHTML = "";
   $("#claims-section").innerHTML = "";
+  $("#data-methods-section").innerHTML = "";
+  $("#final-verdict").innerHTML = "";
   $("#key-findings").innerHTML = "";
   $("#report-title-card").innerHTML = "";
   $("#report-content").innerHTML = '<p class="placeholder">Agents are building the counter-analysis report...</p>';
@@ -622,6 +767,8 @@ async function displayAnalysisResult(payload, options = {}) {
   setGauges(payload.overall_scores);
   renderCitationGrades(payload.citations);
   renderClaimsSection(payload.claims);
+  renderDataMethodsSection(payload.data_quality);
+  renderFinalVerdict(payload);
 
   let markdown = payload.markdown;
   if (!markdown) {
@@ -635,6 +782,7 @@ async function displayAnalysisResult(payload, options = {}) {
   renderMarkdownReport(markdown);
   $("#analysis-workspace")?.classList.remove("loading");
   $("#analysis-workspace")?.classList.add("report-ready");
+  $("#report-footer-note")?.classList.remove("hidden");
   if (options.save) savePaperAnalysis(payload, options.meta);
 }
 
