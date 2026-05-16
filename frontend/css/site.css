@@ -108,7 +108,8 @@ a {
   background: #f1f5f9;
 }
 
-.nav-links a.active {
+.nav-links a.active,
+.nav-links a[aria-current="page"] {
   color: var(--text);
   background: #f1f5f9;
 }
