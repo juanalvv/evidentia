@@ -36,7 +36,7 @@ class LLMClient:
             response = self.client.chat.completions.create(
                 model=model_id,
                 messages=[
-                    {"role": "system", "content": "You are a helpful academic research assistant."},
+                    {"role": "system", "content": "You are a precise academic research assistant. Follow the user's instructions exactly. If the user asks for JSON, return ONLY JSON. If the user asks for a query, return ONLY the query text."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,

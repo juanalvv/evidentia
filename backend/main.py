@@ -58,7 +58,7 @@ class OpenAlexAdapter:
         return []
 
 def main():
-    print("=== Evidentia / ScholarCounter NemoClaw Brain ===")
+    print("=== Evidentia NemoClaw Brain ===")
     
     # 1. Initialize router with real model names from test_nemoclaw.py
     # Note: Using the same model for both for now as a safe default
@@ -88,13 +88,20 @@ def main():
     payload = InputPayload(
         submission_id="test-run-1",
         claims=[
-            Claim(claim_id="c1", text="Large language models exhibit emergent abilities that are not present in smaller models.")
+            Claim(claim_id="c1", text="Large language models exhibit emergent abilities that are not present in smaller models."),
+            Claim(claim_id="c2", text="The transformer architecture is the most efficient for all sequence modeling tasks.")
         ],
         citations=[
             Citation(
                 citation_id="s1",
+                raw_text="Vaswani et al. (2017). Attention Is All You Need. Advances in Neural Information Processing Systems.",
+                doi="10.48550/arXiv.1706.03762", # Still arXiv, but very common
+                year=2017
+            ),
+            Citation(
+                citation_id="s2",
                 raw_text="Wei et al. (2022). Emergent Abilities of Large Language Models. Transactions on Machine Learning Research.",
-                doi="10.48550/arXiv.2206.07682", # Note: arXiv DOIs might not be in Crossref
+                doi="10.48550/arXiv.2206.07682",
                 year=2022
             )
         ]

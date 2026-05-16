@@ -85,8 +85,8 @@ def _coverage_score(
     if not parsed:
         return CoverageScore(score=0.5, explanation="Coverage could not be parsed.")
 
-    claims_backed = parsed.get("supported_claim_ids", [])
-    claims_unbacked = parsed.get("unsupported_claim_ids", [])
+    claims_backed = [str(i) for i in parsed.get("supported_claim_ids", [])]
+    claims_unbacked = [str(i) for i in parsed.get("unsupported_claim_ids", [])]
     score = float(parsed.get("score", 0.5))
     explanation = parsed.get("explanation", "Coverage estimated from LLM reasoning.")
     return CoverageScore(
