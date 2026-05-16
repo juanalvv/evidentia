@@ -1,0 +1,6 @@
+{
+  "name": "scholarcounter",
+  "description": "NemoClaw sandbox for ScholarCounter agents",
+  "workspace": "/tmp/openclaw",
+  "policy": "policy.yaml"
+}
