@@ -7,7 +7,7 @@ from .schemas import Citation, Claim, CoverageScore, GraderOutput, SourceCheck, 
 from ..memory.context_store import ContextStore
 
 
-def run_grader(
+async def run_grader(
     claims: List[Claim],
     citations: List[Citation],
     source_checks: List[SourceCheck],
@@ -20,16 +20,16 @@ def run_grader(
     scores: List[SourceQualityScore] = []
 
     for citation in citations:
-        score, rubric = _score_citation(citation, source_checks, llm, model_route_scoring)
+        score, rubric = await _score_citation(citation, source_checks, llm, model_route_scoring)
         scores.append(SourceQualityScore(citation_id=citation.citation_id, score=score, rubric=rubric))
 
-    coverage = _coverage_score(claims, citations, llm, model_route_reasoning)
+    coverage = await _coverage_score(claims, citations, llm, model_route_reasoning)
     output = GraderOutput(source_quality=scores, coverage=coverage)
     context.set("grader", output.model_dump())
     return output
 
 
-def _score_citation(
+async def _score_citation(
     citation: Citation,
     source_checks: List[SourceCheck],
     llm: Any,
@@ -49,7 +49,7 @@ def _score_citation(
             f"Citation: {citation.raw_text}\n"
             "Return JSON: {\"score\": 0.0, \"recency\": 0.0, \"citations\": 0.0, \"venue\": 0.0}."
         )
-        response = llm.complete(prompt=prompt, model=model_route.name, max_tokens=128)
+        response = await llm.complete(prompt=prompt, model=model_route.name, max_tokens=128)
         parsed = _safe_parse_json(response)
         if parsed:
             score = float(parsed.get("score", score))
@@ -62,7 +62,7 @@ def _score_citation(
     return score, rubric
 
 
-def _coverage_score(
+async def _coverage_score(
     claims: List[Claim],
     citations: List[Citation],
     llm: Any,
@@ -80,7 +80,7 @@ def _coverage_score(
         f"Citations: {[citation.raw_text for citation in citations]}\n"
         "Return JSON with supported_claim_ids, unsupported_claim_ids, and score 0-1."
     )
-    response = llm.complete(prompt=prompt, model=model_route.name, max_tokens=256)
+    response = await llm.complete(prompt=prompt, model=model_route.name, max_tokens=256)
     parsed = _safe_parse_json(response)
     if not parsed:
         return CoverageScore(score=0.5, explanation="Coverage could not be parsed.")
@@ -97,10 +97,31 @@ def _coverage_score(
     )
 
 
+import re
+import json
+
 def _safe_parse_json(response: str) -> Dict[str, Any]:
     try:
-        import json
-
-        return json.loads(response)
+        # 1. Try direct parse
+        return json.loads(response.strip())
     except Exception:
-        return {}
+        pass
+
+    try:
+        # 2. Try extracting from markdown code blocks
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
+        if match:
+            return json.loads(match.group(1).strip())
+    except Exception:
+        pass
+
+    try:
+        # 3. Try finding the first '{' and last '}'
+        start = response.find("{")
+        end = response.rfind("}")
+        if start != -1 and end != -1:
+            return json.loads(response[start : end + 1].strip())
+    except Exception:
+        pass
+
+    return {}

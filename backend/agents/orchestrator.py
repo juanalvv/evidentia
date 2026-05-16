@@ -26,7 +26,7 @@ class Orchestrator:
         self._context = context_store
         self._blocked_action_cb = blocked_action_cb
 
-    def run(self, payload: InputPayload) -> OrchestratorOutput:
+    async def run(self, payload: InputPayload) -> OrchestratorOutput:
         started = time.time()
         output = OrchestratorOutput(submission_id=payload.submission_id)
         errors: List[AgentError] = []
@@ -36,7 +36,7 @@ class Orchestrator:
         self._context.set("citations", [citation.model_dump() for citation in payload.citations])
 
         try:
-            source_checks = run_source_check(
+            source_checks = await run_source_check(
                 payload.citations,
                 tools=self._tools,
                 model_route=self._router.for_reasoning(),
@@ -47,7 +47,7 @@ class Orchestrator:
             errors.append(AgentError(agent="source_checker", message=str(exc)))
 
         try:
-            counterarguments = run_counter_research(
+            counterarguments = await run_counter_research(
                 payload.claims,
                 tools=self._tools,
                 model_route=self._router.for_reasoning(),
@@ -58,7 +58,7 @@ class Orchestrator:
             errors.append(AgentError(agent="counter_researcher", message=str(exc)))
 
         try:
-            grader = run_grader(
+            grader = await run_grader(
                 payload.claims,
                 payload.citations,
                 output.source_checks,

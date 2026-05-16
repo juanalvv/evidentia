@@ -7,7 +7,7 @@ from .schemas import Claim, CounterArgument, CounterPaper
 from ..memory.context_store import ContextStore
 
 
-def run_counter_research(
+async def run_counter_research(
     claims: List[Claim],
     tools: Dict[str, Any],
     model_route: ModelRoute,
@@ -19,33 +19,50 @@ def run_counter_research(
 
     results: List[CounterArgument] = []
     for claim in claims:
-        query = _build_query(claim.text, llm, model_route)
+        query = await _build_query(claim.text, llm, model_route)
         papers: List[CounterPaper] = []
 
         if semscholar:
-            papers.extend(semscholar.search_opposing(query))
+            papers.extend(await semscholar.search_opposing(query))
         if openalex:
-            papers.extend(openalex.search_opposing(query))
+            papers.extend(await openalex.search_opposing(query))
 
-        summary = _summarize_counterarguments(claim.text, papers, llm, model_route)
+        summary = await _summarize_counterarguments(claim.text, papers, llm, model_route)
         results.append(CounterArgument(claim_id=claim.claim_id, summary=summary, papers=papers))
 
     context.set("counterarguments", [item.model_dump() for item in results])
     return results
 
 
-def _build_query(claim_text: str, llm: Any, model_route: ModelRoute) -> str:
+async def _build_query(claim_text: str, llm: Any, model_route: ModelRoute) -> str:
     if not llm:
         return claim_text
     prompt = (
         "Generate a concise academic search query for opposing evidence.\n"
         f"Claim: {claim_text}\n"
-        "Return query only."
+        "Return ONLY the query text, no other conversational words."
     )
-    return llm.complete(prompt=prompt, model=model_route.name, max_tokens=64)
+    raw_query = await llm.complete(prompt=prompt, model=model_route.name, max_tokens=64)
+    return _clean_query(raw_query)
 
 
-def _summarize_counterarguments(
+def _clean_query(query: str) -> str:
+    # Strip common LLM conversational prefixes
+    prefixes = [
+        "Search query:",
+        "Query:",
+        "Here is the query:",
+        "We need to find",
+        "Opposing evidence for",
+    ]
+    cleaned = query.strip().strip('"').strip("'")
+    for prefix in prefixes:
+        if cleaned.lower().startswith(prefix.lower()):
+            cleaned = cleaned[len(prefix) :].strip().strip(":").strip()
+    return cleaned
+
+
+async def _summarize_counterarguments(
     claim_text: str,
     papers: List[CounterPaper],
     llm: Any,
@@ -61,4 +78,4 @@ def _summarize_counterarguments(
         f"Papers:\n{titles}\n"
         "Return 3-4 sentences."
     )
-    return llm.complete(prompt=prompt, model=model_route.name, max_tokens=256)
+    return await llm.complete(prompt=prompt, model=model_route.name, max_tokens=256)

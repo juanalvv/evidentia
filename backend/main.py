@@ -16,52 +16,40 @@ from backend.tools.llm import LLMClient
 from backend.tools.stubs import SemanticScholarStub
 
 class CrossrefAdapter:
-    def lookup_doi(self, doi: str) -> Dict[str, Any]:
+    async def lookup_doi(self, doi: str) -> Dict[str, Any]:
         print(f"  [Tools] Querying Crossref for DOI: {doi}")
         try:
-            # Create a temporary event loop to run the async tool call
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(fetch_crossref_metadata(doi))
-                if result.get("success"):
-                    return result["data"]
-            finally:
-                loop.close()
+            result = await fetch_crossref_metadata(doi)
+            if result.get("success"):
+                return result["data"]
         except Exception as e:
             print(f"  [Tools] Crossref error: {e}")
         return {}
 
 class OpenAlexAdapter:
-    def search_opposing(self, query: str) -> List[CounterPaper]:
+    async def search_opposing(self, query: str) -> List[CounterPaper]:
         print(f"  [Tools] Querying OpenAlex for: {query}")
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(search_openalex(query))
-                if result.get("success"):
-                    papers = []
-                    for p in result["data"]:
-                        papers.append(CounterPaper(
-                            paper_id=p["id"],
-                            title=p["title"],
-                            year=p["year"],
-                            venue=p["venue"],
-                            url=p["url"]
-                        ))
-                    return papers
-            finally:
-                loop.close()
+            result = await search_openalex(query)
+            if result.get("success"):
+                papers = []
+                for p in result["data"]:
+                    papers.append(CounterPaper(
+                        paper_id=p["id"],
+                        title=p["title"],
+                        year=p["year"],
+                        venue=p["venue"],
+                        url=p["url"]
+                    ))
+                return papers
         except Exception as e:
             print(f"  [Tools] OpenAlex error: {e}")
         return []
 
-def main():
+async def main():
     print("=== Evidentia NemoClaw Brain ===")
     
-    # 1. Initialize router with real model names from test_nemoclaw.py
-    # Note: Using the same model for both for now as a safe default
+    # 1. Initialize router
     model_name = "nvidia/nemotron-3-super-120b-a12b"
     router = ModelRouter(
         super_model=model_name,
@@ -95,7 +83,7 @@ def main():
             Citation(
                 citation_id="s1",
                 raw_text="Vaswani et al. (2017). Attention Is All You Need. Advances in Neural Information Processing Systems.",
-                doi="10.48550/arXiv.1706.03762", # Still arXiv, but very common
+                doi="10.48550/arXiv.1706.03762",
                 year=2017
             ),
             Citation(
@@ -112,7 +100,7 @@ def main():
     orch = Orchestrator(router, tools, context, blocked_action_cb=blocked_action_stub)
     
     try:
-        output = orch.run(payload)
+        output = await orch.run(payload)
         
         print("\n=== Pipeline Results ===")
         print(f"Duration: {output.raw.get('duration_seconds')}s")
@@ -134,7 +122,7 @@ def main():
                 print(f"Coverage Score: {output.grader.coverage.score}")
                 print(f"Explanation: {output.grader.coverage.explanation}")
             
-            print(f"Source Quality Scores: {[f'{s.citation_id}: {s.score}' for s in output.grader.source_quality]}")
+            print(f"Source Quality Scores: {[f'{s.citation_id}: {s.score}' for s in output.grader.score_quality]}")
 
         if output.errors:
             print("\n[Errors]")
@@ -147,4 +135,4 @@ def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

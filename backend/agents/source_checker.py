@@ -7,7 +7,7 @@ from .schemas import Citation, SourceCheck
 from ..memory.context_store import ContextStore
 
 
-def run_source_check(
+async def run_source_check(
     citations: List[Citation],
     tools: Dict[str, Any],
     model_route: ModelRoute,
@@ -23,13 +23,13 @@ def run_source_check(
         check = SourceCheck(citation_id=citation.citation_id)
 
         if crossref and citation.doi:
-            meta = crossref.lookup_doi(citation.doi)
+            meta = await crossref.lookup_doi(citation.doi)
             check.normalized_title = meta.get("title")
             check.publication_year = meta.get("year")
             check.normalized_doi = meta.get("doi")
 
         if semscholar:
-            signals = semscholar.find_contradiction_signals(
+            signals = await semscholar.find_contradiction_signals(
                 title=check.normalized_title or citation.title,
                 doi=check.normalized_doi or citation.doi,
             )
