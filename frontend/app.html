@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Analyze — Evidentia</title>
+  <link rel="stylesheet" href="css/site.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="site app-body" data-page="app">
+  <nav class="nav-float-wrap" aria-label="Main">
+    <div class="nav-float">
+      <a href="index.html" class="nav-brand">
+        <span class="nav-dot" aria-hidden="true"></span>
+        Evidentia
+      </a>
+      <div class="nav-links">
+        <a href="index.html" data-nav="home">Home</a>
+      </div>
+      <div class="nav-actions">
+        <a href="login.html" class="btn btn-ghost">Log in</a>
+        <a href="index.html" class="btn btn-ghost">← Home</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="app-shell">
+    <section id="composer-screen" class="composer-screen" aria-label="Analyze paper">
+      <div class="composer-copy">
+        <span class="hero-badge">Evidentia Analyzer</span>
+        <h1>What paper should we stress-test?</h1>
+        <p>Upload a PDF or paste a draft. Evidentia will check citations, find counterarguments, and build a report.</p>
+      </div>
+
+      <form id="analyze-form" class="ai-composer">
+        <button type="button" id="composer-summary" class="composer-summary" aria-label="Edit analysis input">
+          <span class="summary-kind">Input</span>
+          <span id="summary-text">Edit paper input</span>
+          <span class="summary-action">Edit</span>
+        </button>
+        <textarea id="paper-text" rows="3" placeholder="Paste an abstract, section, or research claim..."></textarea>
+        <div class="composer-actions">
+          <label class="attach-btn" for="pdf-file" title="Attach PDF">
+            <span aria-hidden="true">+</span>
+            <span class="sr-only">Attach PDF</span>
+          </label>
+          <input type="file" id="pdf-file" accept=".pdf,application/pdf" />
+          <span class="file-chip">
+            <span id="file-name" class="file-name">No PDF attached</span>
+            <button type="button" id="btn-clear-file" class="clear-file-btn hidden" title="Remove PDF">
+              <span aria-hidden="true">×</span>
+              <span class="sr-only">Remove PDF</span>
+            </button>
+          </span>
+          <button type="button" id="btn-mock" class="demo-btn">Demo</button>
+          <button type="submit" id="btn-analyze" class="send-btn" title="Analyze">
+            <span aria-hidden="true">↑</span>
+            <span class="sr-only">Analyze</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section id="papers-library" class="papers-library" aria-label="My Papers">
+      <div class="library-heading">
+        <div>
+          <span class="library-kicker">Saved analyses</span>
+          <h2>My Papers</h2>
+        </div>
+        <span id="papers-count" class="papers-count">0 papers</span>
+      </div>
+      <div id="papers-list" class="papers-list"></div>
+      <p id="papers-empty" class="papers-empty">Your analyzed papers will appear here after you run a demo or upload a draft.</p>
+    </section>
+
+    <main id="analysis-workspace" class="layout hidden">
+      <section class="panel panel-input" aria-label="Progress">
+        <div class="progress-heading">
+          <button type="button" id="btn-back-library-top" class="back-library-btn hidden">← Back</button>
+          <h2>Agent progress</h2>
+        </div>
+        <div id="progress-panel" class="progress-panel hidden">
+          <div class="progress-bar-wrap">
+            <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+          </div>
+          <p id="progress-message" class="progress-message">Starting...</p>
+          <ul id="agent-steps" class="agent-steps"></ul>
+        </div>
+      </section>
+
+      <section class="panel panel-output" aria-label="Report">
+        <div class="report-heading">
+          <h2>Report</h2>
+        </div>
+
+        <div id="scores-panel" class="scores-panel hidden">
+          <div class="gauge" data-metric="source_quality">
+            <div class="score-ring">
+              <span class="gauge-value">—</span>
+            </div>
+            <span class="gauge-label">Source quality</span>
+          </div>
+          <div class="gauge" data-metric="coverage">
+            <div class="score-ring">
+              <span class="gauge-value">—</span>
+            </div>
+            <span class="gauge-label">Coverage</span>
+          </div>
+          <div class="gauge" data-metric="data_quality">
+            <div class="score-ring">
+              <span class="gauge-value">—</span>
+            </div>
+            <span class="gauge-label">Data quality</span>
+          </div>
+        </div>
+
+        <div id="citation-grades" class="citation-grades hidden"></div>
+
+        <article id="report-content" class="report-content">
+          <p class="placeholder">Upload a paper or load the demo to see the counter-analysis report.</p>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
