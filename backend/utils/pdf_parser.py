@@ -90,16 +90,21 @@ def split_reference_entries(references_text: str) -> List[str]:
     return entries
 
 
-def parse_pdf(pdf_path: str) -> Dict[str, object]:
-    """Parse a PDF and return its full text plus extracted reference entries."""
-    full_text = extract_text(pdf_path)
-    references_text = extract_references_text(full_text)
+def parse_text(full_text: str) -> Dict[str, object]:
+    """Parse plain document text and return full text plus extracted reference entries."""
+    normalized = full_text.strip()
+    references_text = extract_references_text(normalized)
     reference_entries = split_reference_entries(references_text)
     return {
-        "full_text": full_text,
+        "full_text": normalized,
         "references_text": references_text,
         "reference_entries": reference_entries,
     }
+
+
+def parse_pdf(pdf_path: str) -> Dict[str, object]:
+    """Parse a PDF and return its full text plus extracted reference entries."""
+    return parse_text(extract_text(pdf_path))
 
 
 if __name__ == "__main__":

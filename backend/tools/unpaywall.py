@@ -1,3 +1,4 @@
+import os
 import urllib.parse
 from typing import Any, Dict, List, Optional
 
@@ -7,7 +8,7 @@ from backend.tools.cache import cache, make_cache_key
 from backend.tools.http_client import http_client
 
 UNPAYWALL_BASE_URL = "https://api.unpaywall.org/v2"
-UNPAYWALL_DEFAULT_EMAIL = "team@evidentia.example"
+UNPAYWALL_DEFAULT_EMAIL = os.getenv("UNPAYWALL_EMAIL", "team@evidentia.example")
 
 
 def _normalize_unpaywall_authors(authors_payload: Any) -> Optional[List[str]]:
