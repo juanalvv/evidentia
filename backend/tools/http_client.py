@@ -7,7 +7,7 @@ import httpx
 class HTTPClient:
     """Shared HTTP client with retry and backoff support."""
 
-    def __init__(self, timeout: float = 15.0):
+    def __init__(self, timeout: float = 30.0):
         self.client = httpx.AsyncClient(timeout=timeout)
 
     async def get_with_retries(
