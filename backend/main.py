@@ -122,7 +122,7 @@ async def main():
                 print(f"Coverage Score: {output.grader.coverage.score}")
                 print(f"Explanation: {output.grader.coverage.explanation}")
             
-            print(f"Source Quality Scores: {[f'{s.citation_id}: {s.score}' for s in output.grader.score_quality]}")
+            print(f"Source Quality Scores: {[f'{s.citation_id}: {s.score}' for s in output.grader.source_quality]}")
 
         if output.errors:
             print("\n[Errors]")
