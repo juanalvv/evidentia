@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ScholarCounter — Evidentia</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+<header class="app-header"><div><h1>ScholarCounter</h1><p class="tagline">Academic draft counter-analysis · Cloud demo</p></div></header>
+<main class="layout"><section class="panel panel-input" aria-label="Input"><h2>Upload draft</h2>
+<form id="analyze-form">
+<label class="file-label"><span>PDF file</span><input type="file" id="pdf-file" accept=".pdf,application/pdf" /></label>
+<p class="or">or</p>
+<label><span>Paste text</span><textarea id="paper-text" rows="10" placeholder="Paste abstract or section…"></textarea></label>
+<div class="actions"><button type="submit" id="btn-analyze">Analyze</button><button type="button" id="btn-mock" class="secondary">Load demo report</button></div>
+</form>
+<div class="progress-panel hidden" id="progress-panel"><h3>Agent progress</h3><div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width: 0%"></div></div><p id="progress-message" class="progress-message">Starting…</p><ul id="agent-steps" class="agent-steps"></ul></div></section><section class="panel panel-output" aria-label="Report"><h2>Report</h2><div class="scores-panel hidden" id="scores-panel"><div class="gauge" data-metric="source_quality"><span class="gauge-label">Source quality</span><div class="gauge-track"><div class="gauge-fill"></div></div><span class="gauge-value">—</span></div><div class="gauge" data-metric="coverage"><span class="gauge-label">Coverage</span><div class="gauge-track"><div class="gauge-fill"></div></div><span class="gauge-value">—</span></div><div class="gauge" data-metric="data_quality"><span class="gauge-label">Data quality</span><div class="gauge-track"><div class="gauge-fill"></div></div><span class="gauge-value">—</span></div></div><div class="citation-grades hidden" id="citation-grades"></div><article class="report-content" id="report-content"><p class="placeholder">Upload a paper or load the demo to see the counter-analysis report.</p></article></section></main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
