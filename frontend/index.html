@@ -3,21 +3,154 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ScholarCounter — Evidentia</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <title>Evidentia — Counter-analysis for academic drafts</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/site.css" />
 </head>
-<body>
-<header class="app-header"><div><h1>ScholarCounter</h1><p class="tagline">Academic draft counter-analysis · Cloud demo</p></div></header>
-<main class="layout"><section class="panel panel-input" aria-label="Input"><h2>Upload draft</h2>
-<form id="analyze-form">
-<label class="file-label"><span>PDF file</span><input type="file" id="pdf-file" accept=".pdf,application/pdf" /></label>
-<p class="or">or</p>
-<label><span>Paste text</span><textarea id="paper-text" rows="10" placeholder="Paste abstract or section…"></textarea></label>
-<div class="actions"><button type="submit" id="btn-analyze">Analyze</button><button type="button" id="btn-mock" class="secondary">Load demo report</button></div>
-</form>
-<div class="progress-panel hidden" id="progress-panel"><h3>Agent progress</h3><div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width: 0%"></div></div><p id="progress-message" class="progress-message">Starting…</p><ul id="agent-steps" class="agent-steps"></ul></div></section><section class="panel panel-output" aria-label="Report"><h2>Report</h2><div class="scores-panel hidden" id="scores-panel"><div class="gauge" data-metric="source_quality"><span class="gauge-label">Source quality</span><div class="gauge-track"><div class="gauge-fill"></div></div><span class="gauge-value">—</span></div><div class="gauge" data-metric="coverage"><span class="gauge-label">Coverage</span><div class="gauge-track"><div class="gauge-fill"></div></div><span class="gauge-value">—</span></div><div class="gauge" data-metric="data_quality"><span class="gauge-label">Data quality</span><div class="gauge-track"><div class="gauge-fill"></div></div><span class="gauge-value">—</span></div></div><div class="citation-grades hidden" id="citation-grades"></div><article class="report-content" id="report-content"><p class="placeholder">Upload a paper or load the demo to see the counter-analysis report.</p></article></section></main>
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+<body class="site" data-page="home">
+  <nav class="nav-float-wrap" aria-label="Main">
+    <div class="nav-float">
+      <a href="index.html" class="nav-brand">
+        <span class="nav-dot" aria-hidden="true"></span>
+        Evidentia
+      </a>
+      <div class="nav-links">
+        <a href="index.html" data-nav="home">Home</a>
+        <a href="app.html">Dashboard</a>
+      </div>
+      <div class="nav-actions">
+        <a href="login.html" class="btn btn-ghost">Log in</a>
+        <a href="app.html" class="btn btn-primary">Get started</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-main">
+    <section class="hero">
+      <span class="hero-badge">Hack-a-Claw · Cloud Track</span>
+      <h1>
+        Counter-analysis for your
+        <span class="gradient-text">next paper</span>
+        — in minutes.
+      </h1>
+      <p class="hero-sub">
+        Upload a draft and let autonomous agents verify sources, surface opposing research,
+        grade citation coverage, and deliver a structured report with evidence.
+      </p>
+      <div class="hero-cta">
+        <a href="app.html" class="btn btn-primary btn-lg">Get started →</a>
+        <a href="app.html?demo=1" class="btn btn-outline btn-lg">View demo →</a>
+      </div>
+    </section>
+
+    <section class="features" aria-label="Features">
+      <article class="feature-card">
+        <h3>Source freshness</h3>
+        <p>Flags outdated citations and work that may supersede your references.</p>
+      </article>
+      <article class="feature-card">
+        <h3>Counterarguments</h3>
+        <p>Finds literature with opposing conclusions, linked to each claim.</p>
+      </article>
+      <article class="feature-card">
+        <h3>Quality grades</h3>
+        <p>Scores sourcing, argument coverage, and methods vs. field norms.</p>
+      </article>
+    </section>
+
+    <section id="how-it-works" class="section-block">
+      <div class="section-heading">
+        <span class="section-kicker">How it works</span>
+        <h2>From draft to evidence map in three steps.</h2>
+        <p>
+          Evidentia runs an autonomous academic review workflow so students and researchers
+          can see where a paper is strong, stale, or missing support.
+        </p>
+      </div>
+
+      <div class="steps-grid">
+        <article class="step-card">
+          <span class="step-number">01</span>
+          <h3>Upload or paste</h3>
+          <p>Send a PDF draft or raw text. The system extracts claims, citations, and methods context.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-number">02</span>
+          <h3>Agents investigate</h3>
+          <p>Nemotron-powered agents check Crossref, Semantic Scholar, OpenAlex, and arXiv for live evidence.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-number">03</span>
+          <h3>Review the report</h3>
+          <p>Get source grades, coverage gaps, counterarguments, and supporting papers in one readable report.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="outputs" class="section-block section-split">
+      <div class="section-copy">
+        <span class="section-kicker">What you get</span>
+        <h2>A reviewer that shows its work.</h2>
+        <p>
+          The output is designed for quick decisions: what to replace, what to defend,
+          and what evidence to add before submission.
+        </p>
+      </div>
+
+      <div class="outcome-grid">
+        <article class="outcome-card">
+          <span class="outcome-dot good"></span>
+          <h3>Citation health</h3>
+          <p>Per-source grades for recency, metadata quality, and superseded research risk.</p>
+        </article>
+        <article class="outcome-card">
+          <span class="outcome-dot warn"></span>
+          <h3>Claim coverage</h3>
+          <p>Coverage scoring that shows which claims are backed by citations and which need stronger evidence.</p>
+        </article>
+        <article class="outcome-card">
+          <span class="outcome-dot bad"></span>
+          <h3>Counter-literature</h3>
+          <p>Opposing papers grouped by claim, with summaries that make the disagreement easy to understand.</p>
+        </article>
+        <article class="outcome-card">
+          <span class="outcome-dot neutral"></span>
+          <h3>Methods context</h3>
+          <p>Compares data and methods against field norms so weak methodology is visible early.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="trust-band" aria-label="Security and deployment">
+      <article>
+        <h3>Powered by Nemotron</h3>
+        <p>Uses NVIDIA models for agentic reasoning, source triage, and structured report generation.</p>
+      </article>
+      <article>
+        <h3>OpenClaw-ready</h3>
+        <p>Designed around an autonomous workflow with tool calls, progress state, and persistent context.</p>
+      </article>
+      <article>
+        <h3>Cloud Track deployable</h3>
+        <p>Built to run on Brev with academic API egress and a demo-ready frontend.</p>
+      </article>
+    </section>
+
+    <section class="final-cta">
+      <span class="hero-badge">Ready for a paper check?</span>
+      <h2>Stress-test your draft before reviewers do.</h2>
+      <p>Upload a paper, watch the agents work, and leave with concrete evidence fixes.</p>
+      <div class="hero-cta">
+        <a href="app.html" class="btn btn-primary btn-lg">Analyze a draft</a>
+        <a href="app.html?demo=1" class="btn btn-outline btn-lg">Open demo report</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    Evidentia · Built with OpenClaw &amp; Nemotron
+  </footer>
+
+  <script src="js/nav.js"></script>
 </body>
 </html>

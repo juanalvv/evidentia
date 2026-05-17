@@ -1,6 +1,17 @@
 # Person C — Frontend & report
 
-## Start now (no backend)
+## Pages
+
+| Page | File | Purpose |
+|------|------|---------|
+| Landing | `index.html` | Marketing hero + features |
+| Log in | `login.html` | Auth UI (no backend yet) |
+| Register | `register.html` | Auth UI (no backend yet) |
+| Analyzer | `app.html` | Split-pane upload + report + polling |
+
+Shared: floating nav (`css/site.css`), active link via `js/nav.js`.
+
+## Run locally
 
 From repo root `evidentia/`:
 
@@ -8,36 +19,20 @@ From repo root `evidentia/`:
 python -m http.server 8080
 ```
 
-Open: http://localhost:8080/frontend/?demo=1  
-Or click **Load demo report** (needs the server so `fetch` can load fixtures).
+- Landing: http://localhost:8080/frontend/
+- Demo analyzer: http://localhost:8080/frontend/app.html?demo=1
 
-Regenerate demo markdown after editing the JSON contract:
+## API (Person B)
 
-```powershell
-python backend/report/builder.py
-```
-
-## Your deliverables
-
-| File | Purpose |
-|------|---------|
-| `backend/report/CONTRACT.md` | JSON schema for Person A/B — **share this in Slack now** |
-| `backend/report/fixtures/mock_analysis.json` | Mock orchestrator output |
-| `backend/report/builder.py` | Markdown report from JSON |
-| `frontend/*` | UI, gauges, polling |
-
-## When Person B has FastAPI
-
-Set in `frontend/config.js`:
+Set in `config.js`:
 
 ```js
-window.SCHOLAR_COUNTER_API = "http://YOUR-BREV-HOST:8000";
+window.EVIDENTIA_API = "http://YOUR-BREV-HOST:8000";
 ```
 
-Endpoints: `POST /analyze`, `GET /status/{id}`, `GET /report/{id}` — see CONTRACT.md.
+`POST /analyze`, `GET /status/{id}`, `GET /report/{id}` — see `backend/report/CONTRACT.md`.
 
-Person B should call `build_report()` and include `markdown` in the report response (or expose `POST /report/build`).
+## Styles
 
-## Demo URL for judges
-
-Serve `frontend/` + API on Brev; use `?demo=1` as fallback if live analyze fails.
+- `css/site.css` — landing, auth, floating nav
+- `css/app.css` — analyzer split-pane
