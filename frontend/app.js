@@ -85,12 +85,92 @@ function resizeComposerInput() {
   input.style.height = `${Math.min(input.scrollHeight, maxHeight)}px`;
 }
 
-function normalizePayload(payload) {
+function unwrapReportPayload(payload) {
   if (!payload || typeof payload !== "object") return payload;
-  if (payload.source_checks || payload.counterarguments || payload.grader) {
-    return buildFromOrchestrator(payload);
-  }
+  if (payload.analysis_result) return payload.analysis_result;
+  if (payload.result?.analysis_result) return payload.result.analysis_result;
   return payload;
+}
+
+function coerceScore(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeCounterEntry(counter) {
+  return {
+    summary: counter.summary || "",
+    papers: (counter.papers || []).map((paper) => ({
+      title: paper.title || "Untitled",
+      authors: normalizeAuthors(paper.authors) || "",
+      year: paper.year ?? null,
+      doi: paper.doi ?? null,
+      url: paper.url ?? null,
+      relevance:
+        paper.relevance != null
+          ? String(paper.relevance)
+          : paper.relevance_score != null
+            ? String(paper.relevance_score)
+            : "",
+    })),
+  };
+}
+
+function normalizeAnalysisResult(payload) {
+  const paper = payload.paper || {};
+  const authors = paper.authors;
+  const normalizedPaper = {
+    ...paper,
+    title: paper.title || "Untitled draft",
+    authors: Array.isArray(authors) ? authors.filter(Boolean) : authors ? [String(authors)] : [],
+  };
+
+  const citations = (payload.citations || []).map((citation) => ({
+    ...citation,
+    id: citation.id || citation.citation_id,
+    authors: normalizeAuthors(citation.authors) || citation.authors || "",
+    source_quality_score: coerceScore(citation.source_quality_score),
+    recency_flag: citation.recency_flag || "ok",
+    superseded_by: citation.superseded_by || [],
+  }));
+
+  const claims = (payload.claims || []).map((claim) => ({
+    ...claim,
+    id: claim.id || claim.claim_id,
+    counterarguments: (claim.counterarguments || []).map(normalizeCounterEntry),
+    cited_source_ids: claim.cited_source_ids || [],
+  }));
+
+  const overall = payload.overall_scores || {};
+  const overall_scores = {
+    source_quality: coerceScore(overall.source_quality) ?? average(citations.map((c) => c.source_quality_score)),
+    coverage: coerceScore(overall.coverage),
+    data_quality: coerceScore(overall.data_quality ?? payload.data_quality?.score),
+  };
+
+  return {
+    ...payload,
+    job_id: payload.job_id || payload.submission_id || "job-unknown",
+    status: payload.status || "completed",
+    paper: normalizedPaper,
+    overall_scores,
+    citations,
+    claims,
+    data_quality: payload.data_quality || { score: null, summary: null, comparisons: [] },
+    executive_summary: payload.executive_summary || buildExecutiveSummary(overall_scores),
+    progress: payload.progress || { phase: "done", percent: 100, message: "Complete", agent: "orchestrator" },
+    errors: payload.errors || [],
+  };
+}
+
+function normalizePayload(payload) {
+  const root = unwrapReportPayload(payload);
+  if (!root || typeof root !== "object") return root;
+  if (root.source_checks || root.counterarguments || root.grader) {
+    return buildFromOrchestrator(root);
+  }
+  return normalizeAnalysisResult(root);
 }
 
 function buildFromOrchestrator(payload) {
@@ -1053,32 +1133,31 @@ function updateProgress(progress) {
   });
 }
 
-async function displayAnalysisResult(payload) {
+async function displayAnalysisResult(payload, options = {}) {
   const normalized = normalizePayload(payload);
+  activeAnalysisPayload = normalized;
+
   setGauges(normalized.overall_scores);
+  renderReportTitle(normalized.paper);
+  renderKeyFindings(normalized.executive_summary);
   renderCitationGrades(normalized.citations);
+  renderClaimsSection(normalized.claims);
+  renderDataMethodsSection(normalized.data_quality);
+  renderFinalVerdict(normalized);
 
   let markdown = normalized.markdown;
   if (!markdown) {
-    try {
-      const mod = await import("../backend/report/builder.py");
-      void mod;
-    } catch {
-      /* frontend-only fallback */
-    }
-    markdown = buildMarkdownClientSide(normalized);
-    if (normalized.claims?.length) {
-      markdown += "\n\n*Full report will render when Person B wires `GET /report/{id}` with `markdown` from `builder.py`.*";
-    }
+    markdown = await fetchMarkdownFromPayload(normalized);
   }
-  markdown = stripExecutiveSummary(markdown);
-  payload.markdown = markdown;
+  markdown = stripExecutiveSummary(markdown || "");
   renderMarkdownReport(markdown);
+
   $("#analysis-workspace")?.classList.remove("loading");
   $("#analysis-workspace")?.classList.add("report-ready");
   $("#report-footer-note")?.classList.remove("hidden");
   $("#btn-export-pdf")?.classList.remove("hidden");
-  if (options.save) savePaperAnalysis(payload, options.meta);
+
+  if (options.save) savePaperAnalysis(normalized, options.meta);
 }
 
 const MOCK_MARKDOWN = "../backend/report/fixtures/synthetic_report.md";
@@ -1149,13 +1228,19 @@ async function pollUntilDone(jobId) {
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   const reportRes = await fetch(`${API}/report/${jobId}`);
+  if (reportRes.status === 202) {
+    const pending = await reportRes.json();
+    throw new Error(pending.error || "Report not ready");
+  }
   if (!reportRes.ok) throw new Error(`Report failed: ${reportRes.status}`);
-  return reportRes.json();
+  return unwrapReportPayload(await reportRes.json());
 }
 
 async function startAnalyze(formData) {
   activeInputMeta = getCurrentInputMeta();
   showWorkspace();
+  resetReportView();
+  window.scrollTo({ top: 0, behavior: "instant" });
   $("#btn-analyze").disabled = true;
   updateProgress({ phase: "ingest", percent: 5, message: "Uploading…", agent: "orchestrator" });
   try {
