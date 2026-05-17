@@ -1,4 +1,4 @@
-# Evidentia / ScholarCounter
+# Evidentia
 Hackathon information: https://www.shortesthack.com/
 
 Hack-a-Claw Cloud Track — academic paper counter-analysis agent.
