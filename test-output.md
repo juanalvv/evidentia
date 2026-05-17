@@ -1,0 +1,4 @@
+Running `python3 test.py` resulted in:
+```
+{'submission_id': 'demo-1', 'source_checks': [{'citation_id': 's1', 'normalized_title': None, 'normalized_doi': None, 'publication_year': None, 'is_outdated': False, 'contradiction_signals': [], 'evidence': []}], 'counterarguments': [{'claim_id': 'c1', 'summary': 'No strong counterarguments found in current search results.', 'papers': []}], 'grader': {'source_quality': [{'citation_id': 's1', 'score': 0.5, 'rubric': {'recency': 0.0, 'citations': 0.0, 'venue': 0.0}}], 'coverage': {'score': 0.5, 'explanation': 'Coverage estimated without LLM.', 'claims_backed': [], 'claims_unbacked': []}}, 'audit_events': [{'event_type': 'policy_block', 'status': 'denied', 'detail': 'Attempted to access forbidden domain example.invalid', 'metadata': {'domain': 'example.invalid'}}], 'errors': [], 'raw': {'duration_seconds': 0.0}}
+```

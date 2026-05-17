@@ -1,0 +1,15 @@
+version: 1
+name: scholarcounter-policy
+network:
+  allow:
+    - api.semanticscholar.org
+    - api.crossref.org
+    - api.openalex.org
+    - export.arxiv.org
+    - integrate.api.nvidia.com
+  deny_all_other: true
+filesystem:
+  allow:
+    - /tmp/openclaw
+    - /workspace
+  deny_all_other: true

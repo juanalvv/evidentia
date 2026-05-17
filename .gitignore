@@ -1,0 +1,4 @@
+venv/
+nvidia_api.env
+.idea/
+.vscode/

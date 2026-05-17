@@ -1,4 +1,4 @@
-# ScholarCounter Schemas
+# Evidentia Schemas
 
 This document defines the JSON contracts between Person A (agents), Person B (tools/backend), and Person C (report builder).
 
