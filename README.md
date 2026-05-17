@@ -1,33 +1,51 @@
-# Evidentia / ScholarCounter
-Hackathon information: https://www.shortesthack.com/
+# Evidentia
 
-Hack-a-Claw Cloud Track — academic paper counter-analysis agent.
+![EvidentIA UI](docs/screenshot.png)
 
-Brief abstract:
-An academic paper "counterer". That is, a tool to which academic researchers can input drafts of their papers, with the purpose of having the agent check its sources, research the subject, and:
--check whether the sources on which the researcher bases its arguments are outdated/have been rendered obsolete by new research
--research papers in the field holding the oppposite opinions to those of the researcher
--craft reports with counterarguments to the statements in the paper, with references to the sources on which it bases these counterarguments
--Grading the sourcing quality of the paper, both on the quality of the sources themselves and the extent of the coverage of the paper's arguments by the sources.
--Grading the quality of the data gathered by the researcher themselves, comparing it to similar data gatherings/experiments on other papers
--Offer further sources supporting the researcher's positions.
+> Built at the **NVIDIA × ASUS Hack-a-Claw Hackathon** hosted at UCSC.
 
-## Team lanes
+Evidentia is an agentic AI tool that helps academic researchers stress-test their work before publication. Researchers submit a draft paper and Evidentia autonomously analyses it, returning a structured critical report.
 
-- **Person A:** `backend/agents/`, tools orchestration (NemoClaw)
-- **Person B:** `backend/main.py`, `backend/tools/`, `backend/utils/` — tool contracts: [backend/tools/TOOLS.md](backend/tools/TOOLS.md)
-- **Person C:** `backend/report/`, `frontend/` — see [frontend/README.md](frontend/README.md)
+## What it does
 
-## Backend API (Person B)
+- **Counter-argument discovery** — finds papers in the field that argue against the researcher's conclusions, with direct citations.
+- **Source validation** — checks whether the sources cited in the paper are still current or have been superseded by newer research.
+- **Source quality grading** — scores both the individual quality of each cited source and how well the paper's arguments are actually backed by them.
+- **Data benchmarking** — compares the researcher's own data against similar experiments and datasets in the literature.
+- **Supporting literature** — surfaces additional sources that reinforce the researcher's positions, complementing the critical analysis.
 
-On Linux or Brev, from the repo root: `chmod +x deploy.sh && ./deploy.sh`. That installs dependencies from `requirements.txt` and runs `uvicorn` on **0.0.0.0:8000**. Copy [`.env.example`](.env.example) to `.env` and set values such as `UNPAYWALL_EMAIL` before calling Unpaywall-backed paths. For the static UI to call this API, Person C sets `window.SCHOLAR_COUNTER_API` in [`frontend/config.js`](frontend/config.js) to the reachable base URL (for example `http://localhost:8000` locally or `http://YOUR-BREV-HOST:8000` on the instance), then serves the repo with `python -m http.server 8080` and opens `/frontend/` as in [frontend/README.md](frontend/README.md).
+## Tech stack
 
-## Quick demo (Person C)
+- **Agent orchestration:** NemoClaw + Nemotron (NVIDIA)
+- **Backend:** Python · FastAPI · Uvicorn
+- **Frontend:** Vanilla JS / HTML / CSS
 
-```powershell
+## Getting started
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/juanalvv/evidentia.git
 cd evidentia
-python backend/report/builder.py
+chmod +x deploy.sh && ./deploy.sh
+```
+
+This installs all dependencies from `requirements.txt` and starts the API on `0.0.0.0:8000`.
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env and set UNPAYWALL_EMAIL and any other required values
+```
+
+### 3. Run the frontend
+
+```bash
+# In frontend/config.js, set:
+# window.SCHOLAR_COUNTER_API = "http://localhost:8000"
+
 python -m http.server 8080
 ```
 
-→ http://localhost:8080/frontend/
+Then open [http://localhost:8080/frontend/](http://localhost:8080/frontend/).
